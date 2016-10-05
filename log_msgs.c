@@ -51,7 +51,7 @@ int msg_printf(FILE *out_file_handle, const char *format, ...)
          printf_ret=vprintf(format, arglist);
       if(out_file_handle != NULL)
         {
-         fprintf(out_file_handle, "[%s]: ",cur_time_str);
+         fprintf(out_file_handle, "[%s] ",cur_time_str);
          fprintf_ret=vfprintf(out_file_handle, format, arglist);      
         }
       va_end(arglist);

@@ -107,7 +107,7 @@ void kill_processes(pid_t *process_ids, size_t n_processes)
          kill(process_ids[n_child], SIGTERM);   
   }
 
-int wait_processes(pid_t *process_ids, size_t n_processes, int timeout)
+int wait_processes(pid_t *process_ids, size_t n_processes, int wait_timeout)
   {
    int ret_error;
    int n_remaining_procs;
@@ -115,11 +115,12 @@ int wait_processes(pid_t *process_ids, size_t n_processes, int timeout)
    ret_error=0;
    do
      {
-      int wait_stat, wait_ret;
+      int wait_ret;
 
       n_remaining_procs=0;
-      alarm(timeout);
-      wait_ret=waitpid(0, &wait_stat, 0); // wait for any child process whose process group ID is equal to that of the calling process.
+      alarm(wait_timeout);
+      wait_ret=waitpid(0, NULL, 0); // wait for any child process whose process group ID is equal to that of the calling process.
+      log_printf("waitpid: ret: %i\n",wait_ret);
       if(wait_ret != -1) // Valid PID returned
         {
          int n_child;
@@ -136,7 +137,7 @@ int wait_processes(pid_t *process_ids, size_t n_processes, int timeout)
       else
         {
          ret_error=errno; // Error: exit loop
-         log_printf("CPID: %i STAT: 0x%x RET: %i errno: %i errstr: %s\n",getpid(), wait_stat, wait_ret, errno, strerror(errno));
+         log_printf("Error waiting for child process to finish. errno %i: %s\n", errno, strerror(errno));
         }
      }
    while(n_remaining_procs > 0);
@@ -150,12 +151,21 @@ static void exit_deamon_handler(int sig)
    Exit_daemon_loop = 1;
   }
 
+static void timer_handler(int signum)
+  {
+   static int count = 0;
+   log_printf ("timer expired %d times\n", ++count); 
+  }
+
 int set_signal_handler(void)
   {
    int ret;
    struct sigaction act;
 
    memset (&act, '\0', sizeof(act));
+
+   act.sa_handler = timer_handler;
+   sigaction(SIGALRM, &act, NULL);
 
    act.sa_handler = exit_deamon_handler;
    // If the signal handler is invoked while a system call or library function call is blocked,
@@ -170,7 +180,6 @@ int set_signal_handler(void)
       ret=errno;
       log_printf("Error setting termination signal handler. errno=%d\n",errno);
      }
-   signal(SIGALRM, SIG_IGN);
    return(ret);
   }
 
@@ -254,7 +263,9 @@ int main(int argc, char *argv[])
             Child_process_id[1]=web_server_proc;
 
             log_printf("Waiting for child processes\n");
-            wait_processes(Child_process_id, sizeof(Child_process_id)/sizeof(pid_t), 0);
+
+
+            wait_processes(Child_process_id, sizeof(Child_process_id)/sizeof(pid_t), 5);
           }
         }
         
