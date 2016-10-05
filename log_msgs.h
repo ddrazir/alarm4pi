@@ -2,7 +2,7 @@
 #define LOG_MSGS_H
 #include <stdio.h>
 
-#define LOG_FILE_PATH "/var/log/ialarm/"
+#define LOG_FILE_PATH "/var/log/alarm4pi/"
 #define LOG_FILE_NAME LOG_FILE_PATH"daemon.log" // Debug log file. Debug messages will be written into it (and maybe console as well)
 #define EVENT_FILE_NAME LOG_FILE_PATH"events.log" // Events log file
 #define MAX_PREV_MSG_FILE_SIZE 50*1024*1024
