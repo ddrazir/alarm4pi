@@ -10,6 +10,7 @@
 #include <errno.h>
 #include <string.h>
 #include "bcm_gpio.h"
+#include "log_msgs.h"
  
 int GPIO_export(int pin)
   {
@@ -83,7 +84,6 @@ int GPIO_direction(int pin, int dir)
    char path[PIN_DIRECTION_PATH_MAX_LEN];
    int fd;
    int ret_err;
-
  
    snprintf(path, PIN_DIRECTION_PATH_MAX_LEN, "/sys/class/gpio/gpio%d/direction", pin);
    fd = open(path, O_WRONLY);
@@ -185,7 +185,7 @@ int export_gpios(void)
                else
                  {
                   ret_err=fn_err_num;
-                  printf("While exporting output pin %d (relay 4) error %d: %s\n",RELAY4_GPIO,fn_err_num,strerror(fn_err_num));
+                  log_printf("While exporting output pin %d (relay 4) error %d: %s\n",RELAY4_GPIO,fn_err_num,strerror(fn_err_num));
                   GPIO_unexport(PIR_GPIO);
                   GPIO_unexport(RELAY1_GPIO);
                   GPIO_unexport(RELAY2_GPIO);
@@ -195,7 +195,7 @@ int export_gpios(void)
             else
               {
                ret_err=fn_err_num;
-               printf("While exporting output pin %d (relay 3) error %d: %s\n",RELAY3_GPIO,fn_err_num,strerror(fn_err_num));
+               log_printf("While exporting output pin %d (relay 3) error %d: %s\n",RELAY3_GPIO,fn_err_num,strerror(fn_err_num));
                GPIO_unexport(PIR_GPIO);
                GPIO_unexport(RELAY1_GPIO);
                GPIO_unexport(RELAY2_GPIO);
@@ -204,7 +204,7 @@ int export_gpios(void)
          else
            {
             ret_err=fn_err_num;
-            printf("While exporting output pin %d (relay 2) error %d: %s\n",RELAY2_GPIO,fn_err_num,strerror(fn_err_num));
+            log_printf("While exporting output pin %d (relay 2) error %d: %s\n",RELAY2_GPIO,fn_err_num,strerror(fn_err_num));
             GPIO_unexport(PIR_GPIO);
             GPIO_unexport(RELAY1_GPIO);
            }
@@ -212,14 +212,14 @@ int export_gpios(void)
       else
         {
          ret_err=fn_err_num;
-         printf("While exporting output pin %d (relay 1) error %d: %s\n",RELAY1_GPIO,fn_err_num,strerror(fn_err_num));
+         log_printf("While exporting output pin %d (relay 1) error %d: %s\n",RELAY1_GPIO,fn_err_num,strerror(fn_err_num));
          GPIO_unexport(PIR_GPIO);
         }
      }
    else
      {
       ret_err=fn_err_num;
-      printf("While exporting input pin %d (PIR) error %d: %s\n",PIR_GPIO,fn_err_num,strerror(fn_err_num));
+      log_printf("While exporting input pin %d (PIR) error %d: %s\n",PIR_GPIO,fn_err_num,strerror(fn_err_num));
      }
 
    return(ret_err);
@@ -259,7 +259,7 @@ int configure_gpios(void)
         }
      }
    if(ret_err != 0)
-      printf("While configuring direcction of pin %d error %d: %s\n",curr_gpio,ret_err,strerror(ret_err));
+      log_printf("While configuring direcction of pin %d error %d: %s\n",curr_gpio,ret_err,strerror(ret_err));
 
    return(ret_err);
   }
@@ -276,7 +276,7 @@ int unexport_gpios(void)
    ret_err|= GPIO_unexport(RELAY3_GPIO);
    ret_err|= GPIO_unexport(RELAY4_GPIO);
    if(ret_err != 0)
-      printf("While unexporting GPIO pins error %d: %s\n",ret_err,strerror(ret_err));
+      log_printf("While unexporting GPIO pins error %d: %s\n",ret_err,strerror(ret_err));
 
    return(ret_err);
   }

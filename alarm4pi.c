@@ -103,6 +103,9 @@ static int daemonize(char *working_dir)
    return(ret_error);
   }
 */
+
+// Sends the SIGTERM signal to a list processes
+// The list of PIDs is pointed by process_ids and its length in n_processes
 void kill_processes(pid_t *process_ids, size_t n_processes)
   {
    int n_child;
@@ -155,6 +158,10 @@ int wait_processes(pid_t *process_ids, size_t n_processes, int wait_timeout)
    return(ret_error);
   }
 
+// This callback function should be called when the main process receives a SIGINT or
+// SIGTERM signal.
+// Function set_signal_handler() should be called to set this function as the handler of
+// these signals
 static void exit_deamon_handler(int sig)
   {
    log_printf("Signal %i received: Sending TERM signal to children.\n", sig);
@@ -162,12 +169,16 @@ static void exit_deamon_handler(int sig)
    Exit_daemon_loop = 1;
   }
 
+// This callback function is the handler of the SIGALRM signal
+// Function set_signal_handler() should be called to set this function as the handler of
+// these signals 
 static void timer_handler(int signum)
   {
    static int count = 0;
    log_printf ("timer expired %d times\n", ++count); 
   }
 
+// Sets the signal handler functions of SIGALRM, SIGINT and SIGTERM
 int set_signal_handler(void)
   {
    int ret;
@@ -194,6 +205,12 @@ int set_signal_handler(void)
    return(ret);
   }
 
+// Executes a program in a child process
+// The PID of the created process is returned after successful execution. new_proc_id must point to
+// a var when the new PID will be stored.
+// exec_filename must point to a \0 terminated string containing the program filename
+// exec_argv is an array of pointers. Each poining to a string containing a program argument.
+// The first argument is the program filename and the last one must be a NULL pointer
 static int run_background_command(pid_t *new_proc_id, const char *exec_filename, char *const exec_argv[])
   {
    int ret;
@@ -320,14 +337,14 @@ int main(int argc, char *argv[])
           }
         }
 
-      configure_timer(SENSOR_POLLING_PERIOD_SEC); // Activate timer
-   /*
+      // configure_timer(SENSOR_POLLING_PERIOD_SEC); // Activate timer
+
       main_err=export_gpios();
       if(main_err==0)
         {
          int value;
          int repeat = 10;
-
+/*
          main_err=configure_gpios();
          if(main_err==0)
            {
@@ -350,10 +367,9 @@ int main(int argc, char *argv[])
          usleep(500 * 1000);
               }
             while (repeat--);
-           }
+           }*/
          unexport_gpios();
         }
-        */
 
       sleep(10);
 
