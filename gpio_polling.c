@@ -5,7 +5,10 @@
 #include "log_msgs.h"
 
 pthread_t Polling_thread_id;
-#define PIR_POLLING_PERIOD_SEC 1
+// The sensor value will be checked each (in seconds):
+#define PIR_POLLING_PERIOD_SECS 1
+// The sensor value will be remembered during (in periods):
+#define PIR_PERMAN_PERS 60
 /*
       // Write GPIO value
       ret_err=GPIO_write(RELAY1_GPIO, repeat % 2);
@@ -16,18 +19,29 @@ void* polling_thread(volatile int *exit_polling)
   {
    int ret_err;
    int read_err;
-   int pir_value;
+   int curr_pir_value;
+   int last_pir_value;
+   int pir_perman_counter;
 
    event_printf("GPIO server initiated\n");
 
-   read_err=0; // Default thread return value
+   read_err = 0; // Default thread return value
+   pir_perman_counter = 0; // Sensor not activated
+   last_pir_value = 0; // Assume that the sensor if off at the beginning
    while(*exit_polling == 0) // While exit signal not triggered
      {
       // Read GPIO value
-      ret_err = GPIO_read(PIR_GPIO, &pir_value);
+      ret_err = GPIO_read(PIR_GPIO, &curr_pir_value);
       if(ret_err == 0) // Success reading
         {
-         event_printf("GPIO read %i\n", pir_value);
+         if(curr_pir_value != last_pir_value) // Sensor output changed
+           {
+            event_printf("GPIO PIR (%i) value: %i\n", PIR_GPIO, curr_pir_value);
+            last_pir_value = curr_pir_value;
+           }
+
+         if(curr_pir_value != 0) // Sensor output activated, remember its value
+            pir_perman_counter = PIR_PERMAN_PERS;
 
         }
       else
@@ -38,8 +52,9 @@ void* polling_thread(volatile int *exit_polling)
             read_err=ret_err;
            }
         }
- 
-      sleep(PIR_POLLING_PERIOD_SEC);
+      sleep(PIR_POLLING_PERIOD_SECS);
+      if(pir_perman_counter > 0)
+         pir_perman_counter--;
      }
 
    event_printf("GPIO server terminated with error code: %i\n", read_err);

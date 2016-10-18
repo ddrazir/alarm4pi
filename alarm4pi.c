@@ -47,11 +47,11 @@ sudo modprobe bcm2835-v4l2
 
 
 pid_t Child_process_id[2] = {-1, -1}; // Initialize to -1 in order not to send signals if no child process created
-char * const Capture_exec_args[]={"nc", "-l", "-p", "8080", "-v", "-v", NULL};
-char * const Web_server_exec_args[]={"nc", "-l", "-p", "8008", "-v", "-v", NULL};
+//char * const Capture_exec_args[]={"nc", "-l", "-p", "8080", "-v", "-v", NULL};
+//char * const Web_server_exec_args[]={"nc", "-l", "-p", "8008", "-v", "-v", NULL};
 
-//char * const Web_server_exec_args[]={"mjpg_streamer", "-i", "input_file.so -f /tmp_ram -n webcam_pic.jpg", "-o", "output_http.so -w /usr/local/www -p 8008", NULL};
-//char * const Capture_exec_args[]={"raspistill", "-n", "-w", "640", "-h", "480", "-q", "10", "-o", "/tmp_ram/webcam_pic.jpg", "-bm", "-tl", "700", "-t", "0", "-th", "none", NULL};
+char * const Web_server_exec_args[]={"mjpg_streamer", "-i", "input_file.so -f /tmp_ram -n webcam_pic.jpg", "-o", "output_http.so -w /usr/local/www -p 8008", NULL};
+char * const Capture_exec_args[]={"raspistill", "-n", "-w", "640", "-h", "480", "-q", "10", "-o", "/tmp_ram/webcam_pic.jpg", "-bm", "-tl", "700", "-t", "0", "-th", "none", NULL};
 
 // When Break is pressed (or SIGTERM recevied) this var is set to 1 by the signal handler fn to exit loops
 volatile int Exit_daemon_loop=0; // We mau use sig_atomic_t in the declaration instead of int, but this is not needed
