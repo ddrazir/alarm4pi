@@ -62,9 +62,7 @@ int init_polling(volatile int *exit_polling)
             log_printf("Polling thread initiated\n");
          else
             log_printf("Error %i creating polling thread: %s\n", ret_err, strerror(ret_err));
-
         }
-      unexport_gpios();
      }
 
    return(ret_err);
@@ -78,6 +76,6 @@ int wait_polling_end(void)
       log_printf("Polling thread terminated correctly\n");
    else
       log_printf("Error waiting for the polling thread to finish\n");
-
+   unexport_gpios();
    return(ret_err);
   }

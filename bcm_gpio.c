@@ -114,7 +114,7 @@ int GPIO_read(int pin, int *value)
      {
       snprintf(path, PIN_VALUE_PATH_MAX_LEN, "/sys/class/gpio/gpio%d/value", pin);
       fd = open(path, O_RDONLY);
-      if (-1 != fd)
+      if(-1 != fd)
         {
          if (-1 != read(fd, value_str, PIN_VALUE_STR_LEN-1))
            {
