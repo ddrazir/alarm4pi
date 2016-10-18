@@ -36,7 +36,8 @@ void* polling_thread(volatile int *exit_polling)
         {
          if(curr_pir_value != last_pir_value) // Sensor output changed
            {
-            event_printf("GPIO PIR (%i) value: %i\n", PIR_GPIO, curr_pir_value);
+            if(curr_pir_value != 0)
+               event_printf("GPIO PIR (%i) value: %i\n", PIR_GPIO, curr_pir_value);
             last_pir_value = curr_pir_value;
            }
 
