@@ -42,6 +42,7 @@ void* polling_thread(volatile int *exit_polling)
       sleep(PIR_POLLING_PERIOD_SEC);
      }
 
+   event_printf("GPIO server terminated with error code: %i\n", read_err);
    return((void *)(intptr_t)read_err); // we do not know the sizeof(void *) in principle, so cast to intptr_t which has the same sizer to avoid warning
   }
 
@@ -56,7 +57,7 @@ int init_polling(volatile int *exit_polling)
       if(ret_err==0)
         {
          // Create joinable thread
-         ret_err = pthread_create(&Polling_thread_id, NULL, (void *(*)(void *))&polling_thread, (void *)&exit_polling);
+         ret_err = pthread_create(&Polling_thread_id, NULL, (void *(*)(void *))&polling_thread, (void *)exit_polling);
          if(ret_err == 0) // If success
             log_printf("Polling thread initiated\n");
          else
