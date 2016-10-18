@@ -4,13 +4,13 @@ CC = gcc
 CC_FLAGS = -Wall -g
 
 # alarm4pi main (deamon) executable file 
-EXEC = alarm2pid
+EXEC = alarm4pid
 SOURCES = $(wildcard *.c)
 OBJECTS = $(SOURCES:.c=.o)
 
 # Main target
 $(EXEC): $(OBJECTS)
-	$(CC) $(OBJECTS) -o $(EXEC) -lminiupnpc -lresolv
+	$(CC) $(OBJECTS) -o $(EXEC) -lminiupnpc -lresolv -pthread
 
 # To obtain object files which use header file
 %.o: %.c %.h

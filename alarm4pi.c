@@ -19,14 +19,42 @@
 #include "log_msgs.h"
 #include "port_mapping.h"
 #include "public_ip.h"
+#include "gpio_polling.h"
 
-#define SENSOR_POLLING_PERIOD_SEC 1
+#define WSERVER_ENV_VAR_NAME "LD_LIBRARY_PATH"
+#define WSERVER_ENV_VAR_VAL "/usr/local/lib"
+/*
+Hello,
 
-pid_t Child_process_id[2]={-1,-1}; // Initialize to -1 in order no to send signals if no child process created
+On this weekend I have been hacked a preliminary CGI support. Now it is  included in the experimental branch's rev 164.
+Only the following variables had been passed to the script:
+  "SERVER_SOFTWARE=\"mjpg-streamer\" "
+  "SERVER_PROTOCOL=\"HTTP/1.1\" "
+  "SERVER_PORT=\"%d\" "  // OK
+  "GATEWAY_INTERFACE=\"CGI/1.1\" "
+  "REQUEST_METHOD=\"GET\" "
+  "SCRIPT_NAME=\"%s\" " // OK
+  "QUERY_STRING=\"%s\" " //OK
+
+Adding another server/client related informations (such as SERVER_NAME, REMOTE_HOST, REMOTE_PORT) would make the current code much more difficult. If I guess well the current implementation would statisfy the most of the use cases.
+
+Regards,
+Miklós
+sudo modprobe bcm2835-v4l2
+*/
+//#define SENSOR_POLLING_PERIOD_SEC 1
+// configure_timer(SENSOR_POLLING_PERIOD_SEC); // Activate timer
+
+
+pid_t Child_process_id[2] = {-1, -1}; // Initialize to -1 in order not to send signals if no child process created
 char * const Capture_exec_args[]={"nc", "-l", "-p", "8080", "-v", "-v", NULL};
 char * const Web_server_exec_args[]={"nc", "-l", "-p", "8008", "-v", "-v", NULL};
 
-static volatile sig_atomic_t Exit_daemon_loop=0; // When Break is pressed this var is set to 1 by the Control Handler to exit any time consuming loop
+//char * const Web_server_exec_args[]={"mjpg_streamer", "-i", "input_file.so -f /tmp_ram -n webcam_pic.jpg", "-o", "output_http.so -w /usr/local/www -p 8008", NULL};
+//char * const Capture_exec_args[]={"raspistill", "-n", "-w", "640", "-h", "480", "-q", "10", "-o", "/tmp_ram/webcam_pic.jpg", "-bm", "-tl", "700", "-t", "0", "-th", "none", NULL};
+
+// When Break is pressed (or SIGTERM recevied) this var is set to 1 by the signal handler fn to exit loops
+volatile int Exit_daemon_loop=0; // We mau use sig_atomic_t in the declaration instead of int, but this is not needed
 
 /*
 static int daemonize(char *working_dir)
@@ -307,7 +335,6 @@ int main(int argc, char *argv[])
    char wan_address[INET6_ADDRSTRLEN];
    pid_t capture_proc, web_server_proc;
    
-
    // main_err=daemonize("/"); // Custom fn, but it causes problems when waiting for child processes
    main_err=daemon(0,0);
    if(main_err == 0)
@@ -325,6 +352,9 @@ int main(int argc, char *argv[])
       if(get_public_ip(wan_address)==0)
          log_printf("Public IP address: %s\n", wan_address);
 
+      if(setenv(WSERVER_ENV_VAR_NAME, WSERVER_ENV_VAR_VAL, 0) != 0)
+         log_printf("Error setting envoronment variable for child process. Errno=%i\n", errno);
+
       if(run_background_command(&capture_proc, Capture_exec_args[0], Capture_exec_args)==0)
         {
          Child_process_id[0]=capture_proc;
@@ -336,40 +366,15 @@ int main(int argc, char *argv[])
             log_printf("Child process %s executed\n", Web_server_exec_args[0]);
           }
         }
-
-      // configure_timer(SENSOR_POLLING_PERIOD_SEC); // Activate timer
-
-      main_err=export_gpios();
-      if(main_err==0)
+      main_err = init_polling(&Exit_daemon_loop);
+      if(main_err == 0) // Success
         {
-         int value;
-         int repeat = 10;
-/*
-         main_err=configure_gpios();
-         if(main_err==0)
-           {
-            do
-              {
-         
-          // Write GPIO value
-          
-                 main_err=GPIO_write(RELAY1_GPIO, repeat % 2);
-         if (0 != main_err)
-                    printf("Error %d: %s\n",main_err,strerror(main_err));
-
-    
-         
-          // Read GPIO value
-          
-         GPIO_read(PIR_GPIO,&value);
-         log_printf("I'm reading %d in GPIO %d\n", value, PIR_GPIO);
-    
-         usleep(500 * 1000);
-              }
-            while (repeat--);
-           }*/
-         unexport_gpios();
+         wait_polling_end();
         }
+      else
+         log_printf("Polling thread has not been created.\n");
+
+
 
       sleep(10);
 
