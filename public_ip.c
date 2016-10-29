@@ -106,7 +106,7 @@ int hostname_to_ip(char *hostname, struct in_addr *ip_addr)
      }
    else
      {
-      log_printf("Error obtaining host IP: getaddrinfo returned an error: %s\n", gai_strerror(res_error));
+      log_printf("Error resolving IP of hostname %s. error: %s\n", hostname, gai_strerror(res_error));
       ret=res_error;
      }
  

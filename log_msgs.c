@@ -6,7 +6,7 @@
 #include "log_msgs.h"
 
 
-int Console_messages=0; // Indicate whether info messages should be printed in console
+int Console_messages=1; // Indicate whether info messages should be printed in console
 
 FILE *Log_file_handle=NULL, *Event_file_handle=NULL; // File handle to write debug messages
 

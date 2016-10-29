@@ -62,7 +62,7 @@ int config_UPNP(char *wan_address)
                wan_address[0]='\0';
            }
          fn_error=0;
-/*
+
          // add a new TCP port mappings from WAN port to local port
          for(map_index=0;Port_mappings[map_index][1]!=NULL;map_index++)
            {
@@ -85,7 +85,7 @@ int config_UPNP(char *wan_address)
             if(fn_error)
                log_printf(" Failed to map port num. %i. ret error=%i\n",map_index,fn_error);
            }
-*/
+
          log_printf(" Lan address\tWAN->LANport\tProt\tDur\tEn?\tR.Host\tDescr.\n");
          // list all port mappings
 

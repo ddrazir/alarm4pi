@@ -21,8 +21,13 @@
 #include "public_ip.h"
 #include "gpio_polling.h"
 
+#include "pushover.h"
+
 #define WSERVER_ENV_VAR_NAME "LD_LIBRARY_PATH"
 #define WSERVER_ENV_VAR_VAL "/usr/local/lib"
+
+#define PUSHOVER_CONFIG_FILENAME "pushover_conf.txt"
+
 /*
 Hello,
 
@@ -334,7 +339,15 @@ int main(int argc, char *argv[])
    int main_err;
    char wan_address[INET6_ADDRSTRLEN];
    pid_t capture_proc, web_server_proc;
-   
+
+   main_err=pushover_init(PUSHOVER_CONFIG_FILENAME);
+   if(main_err == 0)
+      {
+
+      }
+
+
+   return 1;
    // main_err=daemonize("/"); // Custom fn, but it causes problems when waiting for child processes
    main_err=daemon(0,0);
    if(main_err == 0)
