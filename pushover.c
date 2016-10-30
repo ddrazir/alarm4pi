@@ -23,12 +23,19 @@
 #define DEFAULT_SERVER_PORT 80 // Port to send POST request if no port is specified in server URL
 #define MAX_HTTP_HEADER_LINES 1024 // In order not to wait too long
 
-// Variable names for the configuration file: the first character of all of them must be different due to the current conf. file parser implementtion
+// Variable names for the configuration file and POST body: the first character of all of these must be different due to the current conf. file parser implementtion
 #define SERVER_URL "server_url="
 #define TOKEN_ID "token="
 #define USER_ID "user="
+// Variables only for POST
 #define MESSAGE_ID "message="
-
+#define PRIORITY_ID "priority="
+#define RETRY_ID "retry="
+#define EXPIRE_ID "expire="
+// If message priority is set to 2, these parameters set the time period at which the message will be repeated
+// and the time at which the message expires (in seconds)
+#define RETRY_TIME_SEC 31
+#define EXPIRE_TIME_SEC 120
 
 // Global variables obatined or derived from config file data by init fn
 char Token_id[MAX_CONF_STR_LEN+1];
@@ -174,9 +181,7 @@ int pushover_init(char *conf_filename)
    return(ret_error);
   }
 
-void error(const char *msg) { perror(msg); exit(0); }
-
-int send_notification(char *msg_str)
+int send_notification(char *msg_str, char *msg_priority)
   {
    int ret_error=0;
    int socket_fd;
@@ -204,14 +209,19 @@ int send_notification(char *msg_str)
             unsigned int http_error;
             int fscanf_ret;
 
-            body_len = strlen(TOKEN_ID)+strlen(Token_id) + 1+strlen(USER_ID)+strlen(User_id) + 1+strlen(MESSAGE_ID)+strlen(msg_str);
+            body_len = strlen(TOKEN_ID)+strlen(Token_id) + 1+strlen(USER_ID)+strlen(User_id) + 1+strlen(MESSAGE_ID)+strlen(msg_str) + 1+strlen(PRIORITY_ID)+strlen(msg_priority);
+
+            if(strcmp(msg_priority,"2") == 0) // Max. priority selected, include parameters: retry nd expire in the body
+               body_len += 1+strlen(RETRY_ID)+strlen(TOSTRING(RETRY_TIME_SEC)) + 1+strlen(EXPIRE_ID)+strlen(TOSTRING(EXPIRE_TIME_SEC));
 
             // fill in the parameters and send POST method request header 
             fprintf(socket_file, "POST %s HTTP/1.0\r\n", Server_path);
             fprintf(socket_file, "Host: %s\r\n", Server_name);
             fprintf(socket_file, "Content-Type: application/x-www-form-urlencoded\r\n");
             fprintf(socket_file, "Content-Length: %lu\r\n\r\n", body_len);
-            fprintf(socket_file, TOKEN_ID"%s&"USER_ID"%s&"MESSAGE_ID"%s", Token_id, User_id, msg_str);
+            fprintf(socket_file, TOKEN_ID"%s&"USER_ID"%s&"MESSAGE_ID"%s&"PRIORITY_ID"%s", Token_id, User_id, msg_str, msg_priority);
+            if(strcmp(msg_priority,"2") == 0) // If max. priority: include priority-2 specific parameters
+               fprintf(socket_file, "&"RETRY_ID""TOSTRING(RETRY_TIME_SEC)"&"EXPIRE_ID""TOSTRING(EXPIRE_TIME_SEC));
 
             // Receive response
             fscanf_ret=fscanf(socket_file, "HTTP/%*[^ ] %u %*[^\r]\n", &http_error);
@@ -240,16 +250,37 @@ int send_notification(char *msg_str)
                         break; // Too many lines in response
                        }
                     }
-                  // Receive body
+                  // Received object body
                   if(header_line != NULL)
                     {
-                     int notif_state;
-                     fscanf_ret=fscanf(socket_file, " {\"status\":%i,\"request\":\"%*[^\"]\"}", &notif_state);
-                     if(fscanf_ret == 1)
+                     int notif_state; // Notification state received from the server
+                     int variables_obtined; // Flag for indicating that state variables was successfully parsed 
+                     char var_name[MAX_URL_LEN+1], var_value[MAX_URL_LEN+1];;
+
+                     // Parse JSON received object
+                     fscanf(socket_file, " { "); // Skip variable block start
+                     variables_obtined=0; // Variables not parsed yet \"%[^\"]\" : \"%[^\"]\" , 
+                     while(fscanf(socket_file, " \"%[^\"]\" : ", var_name) == 1) // Loop while var names are obtained
                        {
-                        if(notif_state == 1) // Server code=success
+                        fscanf(socket_file, " \""); // Skip quotes if found (in case var value is string)
+                        if(fscanf(socket_file, " %[^,}\"]\"", var_value) == 1) // Try to get var value: get all chars until we get , } or "
                           {
-                           printf("CODE>%i<\n",notif_state);
+                           fscanf(socket_file, " \""); // Skip quotes if value is quoted
+                           fscanf(socket_file, " ,"); // Skip variable separator: ,
+                           // Tuple "variable name", value received
+                           if(strcmp(var_name,"status") == 0) // we have got the notification status code
+                             {
+                              notif_state=atoi(var_value);
+                              variables_obtined=1; // Status var obtained
+                             }
+                          }
+                       }
+                     fscanf(socket_file, " }");
+
+                     if(variables_obtined != 0)
+                       {
+                        if(notif_state == 1) // Server code=success: notification correctly pushed
+                          {
                            ret_error=0;
                           }
                         else
@@ -294,7 +325,7 @@ int send_notification(char *msg_str)
          else
            {
             log_printf("Error opening socket connected to Pushover server as file: errno=%d: %s\n", errno, strerror(errno));
-            close(socket_fd);
+            close(socket_fd); // Close file descriptor
            }
         }
       else

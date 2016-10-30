@@ -340,14 +340,7 @@ int main(int argc, char *argv[])
    char wan_address[INET6_ADDRSTRLEN];
    pid_t capture_proc, web_server_proc;
 
-   main_err=pushover_init(PUSHOVER_CONFIG_FILENAME);
-   if(main_err == 0)
-     {
-      send_notification("c'est fini");
-     }
 
-
-   return 1;
    // main_err=daemonize("/"); // Custom fn, but it causes problems when waiting for child processes
    main_err=daemon(0,0);
    if(main_err == 0)
