@@ -342,9 +342,9 @@ int main(int argc, char *argv[])
 
    main_err=pushover_init(PUSHOVER_CONFIG_FILENAME);
    if(main_err == 0)
-      {
-
-      }
+     {
+      send_notification("c'est fini");
+     }
 
 
    return 1;

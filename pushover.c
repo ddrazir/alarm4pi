@@ -1,13 +1,13 @@
-#include <stdio.h> /* printf, sprintf */
-#include <stdlib.h> /* exit, atoi, malloc, free */
-#include <unistd.h> /* read, write, close */
-#include <string.h> /* memcpy, memset */
-#include <errno.h>
+#include <stdio.h> // printf, sprintf
+#include <stdlib.h> // exit, atoi, malloc, free
+#include <unistd.h> // read, write, close
+#include <string.h> // memcpy, memset
+#include <errno.h> // for errno var and value definitions
 #include <limits.h> // max hostname length
-#include <sys/socket.h> /* socket, connect */
-#include <netinet/in.h> /* struct sockaddr_in, struct sockaddr */
+#include <sys/socket.h> // socket, connect
+#include <netinet/in.h> // struct sockaddr_in, struct sockaddr
 #include <arpa/inet.h> // for inet_ntoa (deprecated)
-#include <netdb.h> /* struct hostent, gethostbyname */
+#include <netdb.h> // struct hostent, gethostbyname
 
 #include "log_msgs.h"
 #include "public_ip.h"
@@ -17,14 +17,24 @@
 #define STRINGIFY(x) #x
 #define TOSTRING(x) STRINGIFY(x)
 
-#define MAX_CONF_STR_LEN 80
-#define MAX_URL_LEN 2083
-#define SERVER_URL_START "http://"
-#define DEFAULT_SERVER_PORT 80
+#define MAX_CONF_STR_LEN 80 // Max. length of variables in configuration file
+#define MAX_URL_LEN 2083 // De facto URL max. length
+#define SERVER_URL_START "http://" // Expected URL start (secure http not suported)
+#define DEFAULT_SERVER_PORT 80 // Port to send POST request if no port is specified in server URL
+#define MAX_HTTP_HEADER_LINES 1024 // In order not to wait too long
 
-// Global variables
+// Variable names for the configuration file: the first character of all of them must be different due to the current conf. file parser implementtion
+#define SERVER_URL "server_url="
+#define TOKEN_ID "token="
+#define USER_ID "user="
+#define MESSAGE_ID "message="
+
+
+// Global variables obatined or derived from config file data by init fn
 char Token_id[MAX_CONF_STR_LEN+1];
 char User_id[MAX_CONF_STR_LEN+1];
+char Server_name[HOST_NAME_MAX+1];
+char Server_path[HOST_NAME_MAX+1];
 struct in_addr Server_ip;
 int Server_port;
 
@@ -43,6 +53,7 @@ int pushover_init(char *conf_filename)
       // Delete global string variables
       Token_id[0]='\0';
       User_id[0]='\0';
+      strcpy(Server_path,"/");
 
       ret_error = 0;
       while(!feof(conf_fd) && ret_error == 0)
@@ -50,9 +61,9 @@ int pushover_init(char *conf_filename)
          // Try to read any of the recognized variables
          // It is necessary that all the variables names start with a different letter, so that
          // fscanf does not get chars from file buffer if the corresponding variable is not readed
-         if(fscanf(conf_fd, " server_url: %" TOSTRING(MAX_URL_LEN) "s\n", server_url) == 0 &&
-            fscanf(conf_fd, " token: %" TOSTRING(MAX_CONF_STR_LEN) "s\n", Token_id) == 0 &&
-            fscanf(conf_fd, " user: %" TOSTRING(MAX_CONF_STR_LEN) "s\n", User_id) == 0)
+         if(fscanf(conf_fd, " "SERVER_URL" %" TOSTRING(MAX_URL_LEN) "s\n", server_url) == 0 &&
+            fscanf(conf_fd, " "TOKEN_ID" %" TOSTRING(MAX_CONF_STR_LEN) "s\n", Token_id) == 0 &&
+            fscanf(conf_fd, " "USER_ID" %" TOSTRING(MAX_CONF_STR_LEN) "s\n", User_id) == 0)
            {
             log_printf("Error loading Pushover config file: unknown variable name found in file\n");
             ret_error = EINVAL; // Exit loop
@@ -66,12 +77,9 @@ int pushover_init(char *conf_filename)
               {
                if(strlen(User_id) > 0) // If user ID loaded
                  {
-
-                  printf("%s-%s-%s.\n", server_url, Token_id, User_id);
                   if(strncmp(server_url, SERVER_URL_START, strlen(SERVER_URL_START)) == 0) // URL seems to be correct
                     {
-                     char server_name[HOST_NAME_MAX+1];
-                     char *hostname_start_ptr, *hostname_end_ptr;
+                     char *hostname_start_ptr, *hostname_end_ptr, *path_start_prt;
                      size_t server_name_len;
 
                      // Parse URL to get host name and port
@@ -98,15 +106,28 @@ int pushover_init(char *conf_filename)
                            Server_port=DEFAULT_SERVER_PORT;
                        }
 
+                     // Search for path start after hostname
+                     path_start_prt=strchr(hostname_end_ptr,'/');
+                     if(path_start_prt != NULL) // Some path found
+                       {
+                        size_t path_len;
+
+                        path_len = strlen(path_start_prt);
+                        if(path_len <= MAX_URL_LEN)
+                          {
+                           memcpy(Server_path, path_start_prt, path_len); // Replace default path (/)
+                           Server_path[path_len]='\0';
+                          }                        
+                       }
+
                      server_name_len=hostname_end_ptr-hostname_start_ptr;
-                     printf("%p %p %p\n",server_url,hostname_start_ptr,hostname_end_ptr);
                      if(server_name_len <= HOST_NAME_MAX)
                        {
-                        memcpy(server_name, hostname_start_ptr, server_name_len);
-                        server_name[server_name_len]='\0';
+                        memcpy(Server_name, hostname_start_ptr, server_name_len);
+                        Server_name[server_name_len]='\0';
 
                         // Resolve Pushover hostname
-                        ret_error=hostname_to_ip(server_name, &Server_ip);
+                        ret_error=hostname_to_ip(Server_name, &Server_ip);
                         if(ret_error==0)
                           {
                            log_printf("Using Pushover server %s for notifications\n",inet_ntoa(Server_ip));
@@ -123,7 +144,6 @@ int pushover_init(char *conf_filename)
                      log_printf("Error loading Pushover config file: server URL start is not "SERVER_URL_START"\n");
                      ret_error = EINVAL;
                     }
-
                  }
                else
                  {
@@ -147,8 +167,8 @@ int pushover_init(char *conf_filename)
      }
    else
      {
-      log_printf("Error opening Pushover config file %s: errno=%d\n",conf_filename, errno);
       ret_error=errno;
+      log_printf("Error opening Pushover config file %s: errno=%d\n",conf_filename, errno);
      }
 
    return(ret_error);
@@ -156,91 +176,138 @@ int pushover_init(char *conf_filename)
 
 void error(const char *msg) { perror(msg); exit(0); }
 
-int send_notification()
-{
-    int ret_error=0;
+int send_notification(char *msg_str)
+  {
+   int ret_error=0;
+   int socket_fd;
+   struct sockaddr_in server_addr;
 
-    /* first where are we going to send it? */
-    int portno = 8008;
-    char *host = "localhost";
+   // create the socket
+   socket_fd = socket(AF_INET, SOCK_STREAM, 0);
+   if (socket_fd != -1)
+     {
+      // fill in sockaddr_in structure
+      memset(&server_addr,0,sizeof(server_addr));
+      server_addr.sin_family = AF_INET;
+      server_addr.sin_port = htons(Server_port);
+      server_addr.sin_addr = Server_ip; // Copy address structure
 
-    struct hostent *server;
-    struct sockaddr_in serv_addr;
-    int sockfd, bytes, sent, received, total, message_size;
-    char *message, response[4096];
+      // Connect to the server
+      ret_error=connect(socket_fd, (struct sockaddr *)&server_addr, sizeof(server_addr));
+      if(ret_error == 0) // Success
+        {
+         FILE *socket_file;
+         socket_file = fdopen(socket_fd, "r+b");
+         if(socket_file != NULL)
+           {
+            size_t body_len;
+            unsigned int http_error;
+            int fscanf_ret;
 
+            body_len = strlen(TOKEN_ID)+strlen(Token_id) + 1+strlen(USER_ID)+strlen(User_id) + 1+strlen(MESSAGE_ID)+strlen(msg_str);
 
-    /* How big is the message? */
-    message_size=1024;
-    /* allocate space for the message */
-    message=malloc(message_size);
+            // fill in the parameters and send POST method request header 
+            fprintf(socket_file, "POST %s HTTP/1.0\r\n", Server_path);
+            fprintf(socket_file, "Host: %s\r\n", Server_name);
+            fprintf(socket_file, "Content-Type: application/x-www-form-urlencoded\r\n");
+            fprintf(socket_file, "Content-Length: %lu\r\n\r\n", body_len);
+            fprintf(socket_file, TOKEN_ID"%s&"USER_ID"%s&"MESSAGE_ID"%s", Token_id, User_id, msg_str);
 
-    /* fill in the parameters */
+            // Receive response
+            fscanf_ret=fscanf(socket_file, "HTTP/%*[^ ] %u %*[^\r]\n", &http_error);
+            if(fscanf_ret == 1)
+              {
+               if(http_error == 200)
+                 {
+                  char http_str[MAX_URL_LEN+1];
+                  char *header_line;
+                  unsigned int header_line_ind;
+                  int header_abort;
 
-    
-    sprintf(message,"%s %s HTTP/1.0\r\n",
-        "POST",                  /* method         */
-        "/");                    /* path           */
-    sprintf(message+strlen(message),"Content-Length: %lu\r\n",strlen("hola"));
-    strcat(message,"\r\n");                                /* blank line     */
-        strcat(message,"hola");                           /* body           */
-    
+                  // Skip header
+                  header_abort=0;
+                  header_line_ind=0;
+                  while((header_line=fgets(http_str, MAX_URL_LEN, socket_file)) != NULL)
+                    {
+                     if(http_str[0] == '\r') // Empty string mark the end of header: exit header loop
+                        break;
 
-    /* What are we going to send? */
-    printf("Request:\n%s\n",message);
-
-    /* create the socket */
-    sockfd = socket(AF_INET, SOCK_STREAM, 0);
-    if (sockfd < 0) error("ERROR opening socket");
-
-    /* lookup the ip address */
-    server = gethostbyname(host);
-    if (server == NULL) error("ERROR, no such host");
-
-    /* fill in the structure */
-    memset(&serv_addr,0,sizeof(serv_addr));
-    serv_addr.sin_family = AF_INET;
-    serv_addr.sin_port = htons(portno);
-    memcpy(&serv_addr.sin_addr.s_addr,server->h_addr,server->h_length);
-
-    /* connect the socket */
-    if (connect(sockfd,(struct sockaddr *)&serv_addr,sizeof(serv_addr)) < 0)
-        error("ERROR connecting");
-
-    /* send the request */
-    total = strlen(message);
-    sent = 0;
-    do {
-        bytes = write(sockfd,message+sent,total-sent);
-        if (bytes < 0)
-            error("ERROR writing message to socket");
-        if (bytes == 0)
-            break;
-        sent+=bytes;
-    } while (sent < total);
-
-    /* receive the response */
-    memset(response,0,sizeof(response));
-    total = sizeof(response)-1;
-    received = 0;
-    do {
-        bytes = read(sockfd,response+received,total-received);
-        if (bytes < 0)
-            error("ERROR reading response from socket");
-        if (bytes == 0)
-            break;
-        received+=bytes;
-    } while (received < total);
-
-    if (received == total)
-        error("ERROR storing complete response from socket");
-
-    /* close the socket */
-    close(sockfd);
-
-    /* process response */
-    printf("Response:\n%s\n",response);
-
-    free(message);
-    return ret_error;
-}
+                     header_line_ind++;
+                     if(header_line_ind > MAX_HTTP_HEADER_LINES)
+                       {
+                        header_line=NULL;
+                        header_abort=1;
+                        break; // Too many lines in response
+                       }
+                    }
+                  // Receive body
+                  if(header_line != NULL)
+                    {
+                     int notif_state;
+                     fscanf_ret=fscanf(socket_file, " {\"status\":%i,\"request\":\"%*[^\"]\"}", &notif_state);
+                     if(fscanf_ret == 1)
+                       {
+                        if(notif_state == 1) // Server code=success
+                          {
+                           printf("CODE>%i<\n",notif_state);
+                           ret_error=0;
+                          }
+                        else
+                          {
+                           ret_error=EBADRQC;
+                           log_printf("Error status code %i received from Pushover server\n", notif_state);
+                          }                           
+                       }
+                      else
+                       {
+                        ret_error=EPROTO;
+                        log_printf("Invalid format of response body from Pushover server. Status code could not be obtained\n");
+                       }                      
+                    }
+                  else
+                    {
+                     if(header_abort != 0) // Header reception aborted puposedly
+                       {
+                        ret_error=EPROTO;
+                        log_printf("Too long response from Pushover server: reception aborted\n");
+                       }
+                     else
+                       {
+                        ret_error=EPROTO;
+                        log_printf("Error receiving response header from Pushover server: truncated response. errno=%d\n", errno);
+                       }
+                    }
+                 }
+               else
+                 {
+                  ret_error=EBADRQC;
+                  log_printf("HTTP error code %u received from Pushover server\n", http_error);
+                 }
+              }
+            else
+              {
+               ret_error=errno;
+               log_printf("Error receiving response from Pushover server: fscanf returned %i. errno=%d\n", fscanf_ret, errno);
+              }
+            fclose(socket_file); // Closes file and correponding file descriptor
+           }
+         else
+           {
+            log_printf("Error opening socket connected to Pushover server as file: errno=%d: %s\n", errno, strerror(errno));
+            close(socket_fd);
+           }
+        }
+      else
+        {
+         ret_error=errno;
+         log_printf("Error connecting to Pushover server: errno=%d: %s\n", errno, strerror(errno));
+         close(socket_fd);
+        }
+     }
+   else
+     {
+      ret_error=errno;
+      log_printf("Error creating socket for connecting to Pushover server: errno=%d\n", errno);
+     }
+   return(ret_error);
+  }
