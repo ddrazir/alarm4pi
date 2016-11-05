@@ -29,7 +29,7 @@ int get_current_exec_path(char *exec_path, size_t path_buff_len)
         {
          char *exec_dir;
          exec_path_buff[chars_written]='\0';
-         exec_dir=basename(exec_path_buff);
+         exec_dir=dirname(exec_path_buff);
          if(path_buff_len > strlen(exec_dir)+1) // If there is enough space in supplied buffer:
            {
             strcpy(exec_path,exec_dir);
