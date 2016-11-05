@@ -16,7 +16,7 @@ $(EXEC): $(OBJECTS)
 %.o: %.c %.h
 	$(CC) -c $< -o $@ $(CC_FLAGS)
 
-# To obtain object files which do not use header header
+# To obtain object files which do not use header
 %.o: %.c
 	$(CC) -c $< -o $@ $(CC_FLAGS)
 

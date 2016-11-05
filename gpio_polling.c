@@ -2,6 +2,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <arpa/inet.h> //INET6_ADDRSTRLEN
+
 #include "bcm_gpio.h"
 #include "log_msgs.h"
 #include "public_ip.h"

@@ -4,12 +4,14 @@
 #include <string.h> // memcpy, memset
 #include <errno.h> // for errno var and value definitions
 #include <limits.h> // max hostname length
+#include <linux/limits.h> // For PATH_MAX
 #include <sys/socket.h> // socket, connect
 #include <netinet/in.h> // struct sockaddr_in, struct sockaddr
 #include <arpa/inet.h> // for inet_ntoa (deprecated)
 #include <netdb.h> // struct hostent, gethostbyname
 
 #include "log_msgs.h"
+#include "proc_helper.h"
 #include "public_ip.h"
 #include "pushover.h"
 
@@ -49,7 +51,31 @@ int pushover_init(char *conf_filename)
   {
    int ret_error;
    FILE *conf_fd;
-   conf_fd=fopen(conf_filename, "rt");
+   char full_conf_filename[PATH_MAX+1];
+
+   if(strlen(conf_filename)>PATH_MAX)
+      return(EINVAL);
+
+   if(conf_filename[0] != '/') // Relative path specified: obtain executable directory
+     {
+      ret_error = get_current_exec_path(full_conf_filename, PATH_MAX);
+      if(ret_error == 0) // Directory of current executable successfully obtained
+        {
+         if(strlen(full_conf_filename)+strlen(conf_filename) <= PATH_MAX) // total path of conf file name is not too long
+            strcat(full_conf_filename, conf_filename); // Success on getting the complete conf file path 
+         else // Error path too long: try to open file with relative path
+            strcpy(full_conf_filename, conf_filename);
+        }
+      else // Error getting executable dir: try to open file with relative path
+        {
+         log_printf("Error obtaining the directory of the current-process executable file: errno=%d\n", ret_error);
+         strcpy(full_conf_filename, conf_filename);
+        }
+     }
+   else // Absolute path specified: use it directly with fopen()
+      strcpy(full_conf_filename, conf_filename);
+
+   conf_fd=fopen(full_conf_filename, "rt");
    if(conf_fd != NULL)
      {
       char server_url[MAX_URL_LEN+1];
@@ -175,7 +201,7 @@ int pushover_init(char *conf_filename)
    else
      {
       ret_error=errno;
-      log_printf("Error opening Pushover config file %s: errno=%d\n",conf_filename, errno);
+      log_printf("Error opening Pushover config file %s: errno=%d\n", full_conf_filename, errno);
      }
 
    return(ret_error);
@@ -218,7 +244,7 @@ int send_notification(char *msg_str, char *msg_priority)
             fprintf(socket_file, "POST %s HTTP/1.0\r\n", Server_path);
             fprintf(socket_file, "Host: %s\r\n", Server_name);
             fprintf(socket_file, "Content-Type: application/x-www-form-urlencoded\r\n");
-            fprintf(socket_file, "Content-Length: %lu\r\n\r\n", body_len);
+            fprintf(socket_file, "Content-Length: %lu\r\n\r\n", (long unsigned int)body_len);
             fprintf(socket_file, TOKEN_ID"%s&"USER_ID"%s&"MESSAGE_ID"%s&"PRIORITY_ID"%s", Token_id, User_id, msg_str, msg_priority);
             if(strcmp(msg_priority,"2") == 0) // If max. priority: include priority-2 specific parameters
                fprintf(socket_file, "&"RETRY_ID""TOSTRING(RETRY_TIME_SEC)"&"EXPIRE_ID""TOSTRING(EXPIRE_TIME_SEC));
