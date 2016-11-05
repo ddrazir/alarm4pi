@@ -4,12 +4,13 @@
 #include <miniupnpc/miniupnpc.h>
 #include <miniupnpc/upnpcommands.h>
 #include "log_msgs.h"
+#include "port_mapping.h"
 
 char *Port_mappings[][5]=
   { // LAN addr (NULL for local host), WAN port, LAN port, protocol, description
    {NULL, "22", "22", "TCP", "SSH RPi"},
    {NULL, "8080", "8080", "TCP", "webcam RPi"},
-   {NULL, "8008", "8008", "TCP", "webcam2 RPi"},
+   {NULL, WEB_SERVER_PORT, WEB_SERVER_PORT, "TCP", "webcam2 RPi"},
    {NULL, NULL, NULL, NULL, NULL}
   };
 

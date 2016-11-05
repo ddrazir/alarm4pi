@@ -11,22 +11,16 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <syslog.h>
-#include <arpa/inet.h> //INET6_ADDRSTRLEN
 #include <signal.h>
 #include <sys/time.h>
 
 #include "bcm_gpio.h"
 #include "log_msgs.h"
 #include "port_mapping.h"
-#include "public_ip.h"
 #include "gpio_polling.h"
-
-#include "pushover.h"
 
 #define WSERVER_ENV_VAR_NAME "LD_LIBRARY_PATH"
 #define WSERVER_ENV_VAR_VAL "/usr/local/lib"
-
-#define PUSHOVER_CONFIG_FILENAME "pushover_conf.txt"
 
 /*
 Hello,
@@ -55,7 +49,7 @@ pid_t Child_process_id[2] = {-1, -1}; // Initialize to -1 in order not to send s
 //char * const Capture_exec_args[]={"nc", "-l", "-p", "8080", "-v", "-v", NULL};
 //char * const Web_server_exec_args[]={"nc", "-l", "-p", "8008", "-v", "-v", NULL};
 
-char * const Web_server_exec_args[]={"mjpg_streamer", "-i", "input_file.so -f /tmp_ram -n webcam_pic.jpg", "-o", "output_http.so -w /usr/local/www -p 8008", NULL};
+char * const Web_server_exec_args[]={"mjpg_streamer", "-i", "input_file.so -f /tmp_ram -n webcam_pic.jpg", "-o", "output_http.so -w /usr/local/www -p "WEB_SERVER_PORT, NULL}; // WEB_SERVER_PORT is defined in port_mapping.h
 char * const Capture_exec_args[]={"raspistill", "-n", "-w", "640", "-h", "480", "-q", "10", "-o", "/tmp_ram/webcam_pic.jpg", "-bm", "-tl", "700", "-t", "0", "-th", "none", NULL};
 
 // When Break is pressed (or SIGTERM recevied) this var is set to 1 by the signal handler fn to exit loops
@@ -337,9 +331,7 @@ int configure_timer(float interval_sec)
 int main(int argc, char *argv[])
   {
    int main_err;
-   char wan_address[INET6_ADDRSTRLEN];
    pid_t capture_proc, web_server_proc;
-
 
    // main_err=daemonize("/"); // Custom fn, but it causes problems when waiting for child processes
    main_err=daemon(0,0);
@@ -353,10 +345,6 @@ int main(int argc, char *argv[])
       set_signal_handler();
 
       //config_UPNP(NULL);
-
-
-      if(get_public_ip(wan_address)==0)
-         log_printf("Public IP address: %s\n", wan_address);
 
       if(setenv(WSERVER_ENV_VAR_NAME, WSERVER_ENV_VAR_VAL, 0) != 0)
          log_printf("Error setting envoronment variable for child process. Errno=%i\n", errno);
@@ -372,7 +360,7 @@ int main(int argc, char *argv[])
             log_printf("Child process %s executed\n", Web_server_exec_args[0]);
           }
         }
-      main_err = init_polling(&Exit_daemon_loop);
+      main_err = init_polling(&Exit_daemon_loop, "Server: http://%s:"WEB_SERVER_PORT);
       if(main_err == 0) // Success
         {
          wait_polling_end();
@@ -382,7 +370,7 @@ int main(int argc, char *argv[])
 
 
 
-      sleep(10);
+      sleep(1);
 
       log_printf("Waiting for child processes to finish\n");
 

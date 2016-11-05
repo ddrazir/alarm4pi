@@ -1,6 +1,8 @@
 #ifndef PUBLIC_IP_H
 #define PUBLIC_IP_H
 
+#include <netinet/in.h>
+
 #define OPENDNS_NAME "resolver1.opendns.com"
 #define PUBLIC_IP_RECORD "myip.opendns.com"
 
