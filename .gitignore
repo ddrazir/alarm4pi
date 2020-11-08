@@ -31,3 +31,10 @@
 # Debug files
 *.dSYM/
 *.su
+
+# Log files
+*.log
+
+# cmake build directory
+_build/
+
