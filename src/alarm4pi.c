@@ -41,7 +41,7 @@
 // List of child processes:
 pid_t Child_process_ids[2] = {-1, -1}; // Initialize to -1 in order not to send signals if no child process created
 
-char * const Web_server_exec_args[]={WEB_SERVER_BIN_PATH"mjpg_streamer", "-i", WEB_SERVER_BIN_PATH"input_raspicam.so", "-o", WEB_SERVER_BIN_PATH"output_http.so -w "WEB_SERVER_BIN_PATH"www -p "WEB_SERVER_PORT, NULL}; // WEB_SERVER_PORT is defined in port_mapping.h
+char * const Web_server_exec_args[]={WEB_SERVER_BIN_PATH"mjpg_streamer", "-i", WEB_SERVER_BIN_PATH"input_raspicam.so", "-o", WEB_SERVER_BIN_PATH"output_http.so -w ./www -p "WEB_SERVER_PORT, NULL}; // WEB_SERVER_PORT is defined in port_mapping.h
 char * const Tunneling_exec_args[]={"socketxp", "connect", "http://localhost:"WEB_SERVER_PORT, NULL};
 char * const Capture_exec_args[]={"raspistill", "-n", "-w", "640", "-h", "480", "-q", "10", "-o", "/tmp_ram/webcam_pic.jpg", "-bm", "-tl", "700", "-t", "0", "-th", "none", NULL};
 

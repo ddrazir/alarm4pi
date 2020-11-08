@@ -1,7 +1,7 @@
 # alarm4pi v0.2
-This project implement an application software to convert a Raspberry Pi
-into an alarm system for home.
-It has been tested with an Raspberry Pi 3 model B and Raspbian 32 bits (now
+This project implements an application software to convert a Raspberry Pi
+into an alarm system for your house.
+It has been tested with a Raspberry Pi 3 model B and Raspbian 32 bits (now
 called Raspberry Pi OS).
 
 ## Description

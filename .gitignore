@@ -28,6 +28,10 @@
 *.x86_64
 *.hex
 
+# Python
+__pycache__
+*.pyc
+
 # Debug files
 *.dSYM/
 *.su
