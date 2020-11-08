@@ -13,8 +13,11 @@
 #define RELAY2_GPIO 9 // pin 21 in pin header
 #define RELAY3_GPIO 10 // pin 19 in pin header
 #define RELAY4_GPIO 11 // pin 23 in pin header
+// Pin used as a global variable between the alarm4pi daemon
+// and the web server to arm or disarm to alarm notifications:
+#define ARMING_GPIO 18 // pin 12 in pin header
 
-// Internal defines 
+// Internal defines
 #define PIN_NAME_MAX_BUFF_LEN 4
 #define PIN_DIRECTION_PATH_MAX_LEN 34
 #define GPIO_EXPORT_MAX_WAIT_CYCLES 20

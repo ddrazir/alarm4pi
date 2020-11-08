@@ -5,12 +5,12 @@ Connection: close
 Cache-Control: no-store
 "
 echo "<!DOCTYPE html><html><head>
-<title>Processes</title>
+<title>Halt</title>
 <meta name="viewport" content="width=device-width, initial-scale=1"></head>
 <body>
-<h3>ps:</h3>
+<h3>Halting...</h3>
 <pre>"
-ps x
+gpio -g read 8
 echo "</pre>
 </body>
 </html>"

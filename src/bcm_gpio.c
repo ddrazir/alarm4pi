@@ -11,7 +11,7 @@
 #include <string.h>
 #include "bcm_gpio.h"
 #include "log_msgs.h"
- 
+
 int GPIO_export(int pin)
   {
    char name_buffer[PIN_NAME_MAX_BUFF_LEN];
@@ -77,14 +77,14 @@ int GPIO_unexport(int pin)
        ret_err=errno;
    return(ret_err);
   }
- 
+
 int GPIO_direction(int pin, int dir)
   {
    const char *s_directions_str[2] = {"in","out"};
    char path[PIN_DIRECTION_PATH_MAX_LEN];
    int fd;
    int ret_err;
- 
+
    snprintf(path, PIN_DIRECTION_PATH_MAX_LEN, "/sys/class/gpio/gpio%d/direction", pin);
    fd = open(path, O_WRONLY);
    if(-1 != fd)
@@ -102,7 +102,7 @@ int GPIO_direction(int pin, int dir)
        ret_err=errno;
    return(ret_err);
   }
- 
+
 int GPIO_read(int pin, int *value)
   {
    char path[PIN_VALUE_PATH_MAX_LEN];
@@ -133,7 +133,7 @@ int GPIO_read(int pin, int *value)
       ret_err=EINVAL;
    return(ret_err);
   }
- 
+
 int GPIO_write(int pin, int value)
   {
    const char *s_values_str[2] = {"0","1"};
@@ -180,7 +180,19 @@ int export_gpios(void)
                fn_err_num=GPIO_export(RELAY4_GPIO);
                if (0 == fn_err_num)
                  {
-                  ret_err=0;
+                  fn_err_num=GPIO_export(ARMING_GPIO);
+                  if (0 == fn_err_num)
+                     ret_err=0;
+                  else
+                    {
+                     ret_err=fn_err_num;
+                     log_printf("While exporting output pin %d (arming switch) error %d: %s\n",ARMING_GPIO,fn_err_num,strerror(fn_err_num));
+                     GPIO_unexport(PIR_GPIO);
+                     GPIO_unexport(RELAY1_GPIO);
+                     GPIO_unexport(RELAY2_GPIO);
+                     GPIO_unexport(RELAY3_GPIO);
+                     GPIO_unexport(RELAY4_GPIO);
+                    }
                  }
                else
                  {
@@ -190,7 +202,7 @@ int export_gpios(void)
                   GPIO_unexport(RELAY1_GPIO);
                   GPIO_unexport(RELAY2_GPIO);
                   GPIO_unexport(RELAY3_GPIO);
-                 }  
+                 }
               }
             else
               {
@@ -199,7 +211,7 @@ int export_gpios(void)
                GPIO_unexport(PIR_GPIO);
                GPIO_unexport(RELAY1_GPIO);
                GPIO_unexport(RELAY2_GPIO);
-              }  
+              }
            }
          else
            {
@@ -223,7 +235,7 @@ int export_gpios(void)
      }
 
    return(ret_err);
-  } 
+  }
 
 int configure_gpios(void)
   {
@@ -253,9 +265,15 @@ int configure_gpios(void)
                curr_gpio=RELAY4_GPIO;
                ret_err=GPIO_direction(curr_gpio, PIN_OUT_DIR);
                if (0 == ret_err)
+                 {
                   GPIO_write(curr_gpio, PIN_HIGH_VAL);
-              } 
-           } 
+                  curr_gpio=ARMING_GPIO;
+                  ret_err=GPIO_direction(curr_gpio, PIN_OUT_DIR);
+                  if (0 == ret_err)
+                     GPIO_write(curr_gpio, PIN_HIGH_VAL);
+                 }
+              }
+           }
         }
      }
    if(ret_err != 0)
@@ -275,6 +293,7 @@ int unexport_gpios(void)
    ret_err|= GPIO_unexport(RELAY2_GPIO);
    ret_err|= GPIO_unexport(RELAY3_GPIO);
    ret_err|= GPIO_unexport(RELAY4_GPIO);
+   ret_err|= GPIO_unexport(ARMING_GPIO);
    if(ret_err != 0)
       log_printf("While unexporting GPIO pins error %d: %s\n",ret_err,strerror(ret_err));
 

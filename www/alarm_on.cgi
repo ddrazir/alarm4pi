@@ -5,12 +5,12 @@ Connection: close
 Cache-Control: no-store
 "
 echo "<!DOCTYPE html><html><head>
-<title>Processes</title>
+<title>Alarm on</title>
 <meta name="viewport" content="width=device-width, initial-scale=1"></head>
 <body>
-<h3>ps:</h3>
+<h3>Enabling alarm (setting to 0)...</h3>
 <pre>"
-ps x
+gpio -g write 18 0
 echo "</pre>
 </body>
 </html>"

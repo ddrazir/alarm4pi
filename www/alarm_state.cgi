@@ -5,12 +5,11 @@ Connection: close
 Cache-Control: no-store
 "
 echo "<!DOCTYPE html><html><head>
-<title>Processes</title>
+<title>Alarm state</title>
 <meta name="viewport" content="width=device-width, initial-scale=1"></head>
 <body>
-<h3>ps:</h3>
-<pre>"
-ps x
-echo "</pre>
+<h3>Alarm state:"
+gpio -g read 18
+echo " (0=armed)</h3>
 </body>
 </html>"

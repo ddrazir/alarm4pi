@@ -65,6 +65,7 @@ void* polling_thread(volatile int *exit_polling)
   {
    int ret_err;
    int read_err;
+   int alarm_armed;
    int curr_pir_value;
    int last_pir_value;
    int pir_perman_counter;
@@ -73,32 +74,47 @@ void* polling_thread(volatile int *exit_polling)
 
    read_err = 0; // Default thread return value
    pir_perman_counter = 0; // Sensor not activated
-   last_pir_value = 0; // Assume that the sensor if off at the beginning
-   while(*exit_polling == 0) // While exit signal not triggered
+   last_pir_value = 0; // Assume that the sensor is off at the beginning
+   while(*exit_polling == 0) // While the exit signal is not triggered:
      {
-      // Read GPIO value
-      ret_err = GPIO_read(PIR_GPIO, &curr_pir_value);
+      // Check if the alarm is armed:
+      ret_err = GPIO_read(ARMING_GPIO, &alarm_armed);
       if(ret_err == 0) // Success reading
         {
-         if(curr_pir_value != last_pir_value) // Sensor output changed
+         if(alarm_armed == 0) // If the alarm is armed (GPIO set to 0):
            {
-            if(curr_pir_value != 0)
+            // Check if the PIR sensor is activated:
+            ret_err = GPIO_read(PIR_GPIO, &curr_pir_value);
+            if(ret_err == 0) // Success reading
               {
-               event_printf("GPIO PIR (%i) value: %i\n", PIR_GPIO, curr_pir_value);
-               send_info_notif("PIR sensor activated", "2");
+               if(curr_pir_value != last_pir_value) // Sensor output changed
+                 {
+                  if(curr_pir_value != 0)
+                    {
+                     event_printf("GPIO PIR (%i) value: %i\n", PIR_GPIO, curr_pir_value);
+                     send_info_notif("PIR sensor activated", "2");
+                    }
+                  last_pir_value = curr_pir_value;
+                 }
+
+               if(curr_pir_value != 0) // Sensor output activated, remember its value
+                  pir_perman_counter = PIR_PERMAN_PERS;
               }
-            last_pir_value = curr_pir_value;
+            else
+              {
+               if(read_err==0) // No error code has been logged yet
+                 {
+                  log_printf("Error %i while reading PIR GPIO (%i): %s\n", ret_err, PIR_GPIO, strerror(ret_err));
+                  read_err=ret_err;
+                 }
+              }
            }
-
-         if(curr_pir_value != 0) // Sensor output activated, remember its value
-            pir_perman_counter = PIR_PERMAN_PERS;
-
         }
       else
         {
          if(read_err==0) // No error code has been logged yet
            {
-            log_printf("Error %i while reading GPIO %i: %s\n", ret_err, PIR_GPIO, strerror(ret_err));
+            log_printf("Error %i while reading alarm arming GPIO (%i): %s\n", ret_err, ARMING_GPIO, strerror(ret_err));
             read_err=ret_err;
            }
         }
@@ -108,19 +124,19 @@ void* polling_thread(volatile int *exit_polling)
      }
 
    event_printf("GPIO server terminated with error code: %i\n", read_err);
-   return((void *)(intptr_t)read_err); // we do not know the sizeof(void *) in principle, so cast to intptr_t which has the same sizer to avoid warning
+   return((void *)(intptr_t)read_err); // initially we do not know the sizeof(void *), so cast to intptr_t which has the same size to avoid warning
   }
 
 int init_polling(volatile int *exit_polling, char *msg_info_fmt)
   {
    int ret_err;
 
-   ret_err=export_gpios(); // This function and configure_gpios() will log error messages 
+   ret_err=export_gpios(); // This function and configure_gpios() will log error messages
    if(ret_err==0)
      {
       ret_err=configure_gpios();
       if(ret_err==0)
-        { 
+        {
          ret_err=pushover_init(PUSHOVER_CONFIG_FILENAME);
          if(ret_err == 0)
            {
