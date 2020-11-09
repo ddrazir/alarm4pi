@@ -24,6 +24,39 @@
 #define PROC_OUTPUT_READ_TIMEOUT 12 // Maximum num. of seconds to wait for a program to print its output text
 #define MIN_VALID_PROC_OUTPUT 30 // Minimum number of characters that the executed process is expected to print
 
+
+// Get the time elapsed since a specified moment using a monotonic clock.
+// If since_time is NULL, just the time is measured from a particular
+// unspecified start moment.
+// If the function fails obtaining the time, returns a zero time.
+struct timespec get_elapsed_time(struct timespec *since_time_ptr)
+  {
+   struct timespec time_diff, curr_time;
+
+   if(clock_gettime(CLOCK_MONOTONIC, &curr_time) == 0)
+     {
+      if(since_time_ptr != NULL)
+        {
+         time_diff.tv_sec = curr_time.tv_sec - since_time_ptr->tv_sec;
+         time_diff.tv_nsec = curr_time.tv_nsec - since_time_ptr->tv_nsec;
+         if(time_diff.tv_nsec < 0)
+           {
+            time_diff.tv_sec--;
+            time_diff.tv_nsec += 1000000000L;
+           }
+        }
+      else
+         time_diff = curr_time;
+     }
+   else
+     {
+      time_diff.tv_sec = 0;
+      time_diff.tv_nsec = 0;
+     }
+
+   return(time_diff);
+  }
+
 int get_current_exec_path(char *exec_path, size_t path_buff_len)
   {
    int ret_error;
@@ -380,8 +413,8 @@ int run_background_command_out_array(pid_t *new_proc_id, char *output_array, siz
       int num_fds_ready;
       size_t num_output_chars = 0;
       int output_fd_flags;
-      time_t init_sec_count = time(NULL);
-      time_t num_elapsed_secs;
+      struct timespec init_time = get_elapsed_time(NULL); // Get the current time
+      struct timespec elapsed_time;
 
       do
         {
@@ -404,11 +437,12 @@ int run_background_command_out_array(pid_t *new_proc_id, char *output_array, siz
             else
                num_fds_ready = -1; // read() failed: indicate an error to exit
            }
-         num_elapsed_secs = time(NULL) - init_sec_count;
+         elapsed_time = get_elapsed_time(&init_time); // Get the time elapsed since the fn start
+         // log_printf("Elapsed %d s (). Total read %d chars (max. %d). DFs: %d. Errno: %d\n",elapsed_time.tv_sec, num_output_chars, output_array_len, num_fds_ready, errno);
         } // we continue looping if select returned no error (or was interrupted by a signal) and there is space left in the array
-      while((num_fds_ready > 0 || (num_fds_ready == -1 && errno == EINTR) || num_output_chars < MIN_VALID_PROC_OUTPUT) && num_elapsed_secs < PROC_OUTPUT_READ_TIMEOUT && num_output_chars < output_array_len - 1);
+      while((num_fds_ready > 0 || (num_fds_ready == -1 && errno == EINTR) || num_output_chars < MIN_VALID_PROC_OUTPUT) && elapsed_time.tv_sec < PROC_OUTPUT_READ_TIMEOUT && num_output_chars < output_array_len - 1);
 
-      if(num_fds_ready >= 0) // select() finally indicated a timeout as expected or the array is full: success
+      if(num_fds_ready >= 0) // select() finally indicated a timeout as expected (=0) or the array is full (>0): success
          ret=0;
       else // select() or read() returned -1 indicating an error
         {

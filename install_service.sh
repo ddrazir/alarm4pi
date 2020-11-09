@@ -9,7 +9,8 @@ Wants=network-online.target
 [Service]
 Type=forking
 User=pi
-ExecStart=`pwd`/alarm4pid
+ExecStartPre=/bin/sh -c 'until ping -c 1 8.8.8.8; do sleep 1; done;'
+ExecStart=/home/pi/Desktop/alarm4pi/alarm4pid
 
 [Install]
 WantedBy=multi-user.target

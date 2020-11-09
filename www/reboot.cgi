@@ -5,12 +5,12 @@ Connection: close
 Cache-Control: no-store
 "
 echo "<!DOCTYPE html><html><head>
-<title>Halt</title>
+<title>Reboot</title>
 <meta name="viewport" content="width=device-width, initial-scale=1"></head>
 <body>
-<h3>Halting...</h3>
+<h3>Rebooting...</h3>
 <pre>"
-sudo halt
+sudo reboot
 echo "</pre>
 </body>
 </html>"

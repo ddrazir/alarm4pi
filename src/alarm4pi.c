@@ -112,7 +112,7 @@ int main(int argc, char *argv[])
       int run_prog_ret;
 
       // info_msg_fmt containt a format string with an explicit conversion specifier %s for the public server IP
-      snprintf(info_msg_fmt, sizeof(info_msg_fmt), "Server: http://%%s:"WEB_SERVER_PORT" ");
+      snprintf(info_msg_fmt, sizeof(info_msg_fmt), "Server: http://%%s:"WEB_SERVER_PORT);
       syslog(LOG_NOTICE, "alarm4pi daemon started.");
 
       if(open_log_files(LOG_FILE_PATH))
@@ -136,6 +136,8 @@ int main(int argc, char *argv[])
            {
             size_t cur_info_msg_fmt_len;
 
+            cur_info_msg_fmt_len=strlen(info_msg_fmt);
+            snprintf(info_msg_fmt+cur_info_msg_fmt_len, sizeof(info_msg_fmt)-cur_info_msg_fmt_len, " Tunneling: ");
             cur_info_msg_fmt_len=strlen(info_msg_fmt);
             // Execute the tunneling program and add its text output to the notification message string
             run_prog_ret = run_background_command_out_array(&child_proc_id, info_msg_fmt+cur_info_msg_fmt_len, sizeof(info_msg_fmt)-cur_info_msg_fmt_len, Tunneling_exec_args[0], Tunneling_exec_args);

@@ -26,11 +26,11 @@ void get_localtime_str(char *cur_time_str, size_t cur_time_str_len)
       cur_time_struct = localtime(&cur_time); // Use local time (not UTC)
       if(strftime(cur_time_str, cur_time_str_len, "%Y-%m-%d %H:%M:%S", cur_time_struct)==0) // No output 
          if(cur_time_str_len>0) // if strftime() returns 0, the contents of the array may be undefined
-            cur_time_str[0]='\0'; // Terminate string 
+            cur_time_str[0]='\0'; // Terminate string
      }
    else
      {
-      if(cur_time_str_len>0) // Error getting time, terminate string 
+      if(cur_time_str_len>0) // Error getting time, terminate string
          cur_time_str[0]='\0';
      }
 
