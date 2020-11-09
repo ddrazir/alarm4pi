@@ -110,3 +110,7 @@ Since gcc was installed before for mjpg-streamer, you just need to type:
 ``` sudo apt-get install libminiupnpc-dev ```
 and then execute ```make``` in the project directory
 
+### alarm4pi service install ###
+The install_service.sh script can be executed to create a systemd service
+that will automatically start alarm4pi on boot. This script can be executed typing:
+``` sudo ./install_service.sh ```
