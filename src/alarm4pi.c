@@ -20,7 +20,7 @@
 // for the web server. This is usefull when your Internet service provider is
 // using CG-NAT (carrier grade network address translation) and the Raspnerry
 // Pi cannot receive incomming connections from the Internet
-//#define REVERSE_TUNNELING 1
+#define REVERSE_TUNNELING 1
 
 
 // Only needed when the web server is installed
@@ -47,6 +47,7 @@
 pid_t Child_process_ids[2] = {-1, -1}; // Initialize to -1 in order not to send signals if no child process was created
 
 char * const Web_server_exec_args[]={WEB_SERVER_BIN_PATH"mjpg_streamer", "-i", WEB_SERVER_BIN_PATH"input_raspicam.so", "-o", WEB_SERVER_BIN_PATH"output_http.so -w ./www -p "WEB_SERVER_PORT, NULL}; // WEB_SERVER_PORT is defined in port_mapping.h
+//char * const Web_server_exec_args[]={WEB_SERVER_BIN_PATH"mjpg_streamer", "-i", WEB_SERVER_BIN_PATH"input_file.so -f /tmp -n Pochampally.jpg", "-o", WEB_SERVER_BIN_PATH"output_http.so -w ./www -p "WEB_SERVER_PORT, NULL}; // WEB_SERVER_PORT is defined in port_mapping.h
 char * const Tunneling_exec_args[]={"socketxp", "connect", "http://localhost:"WEB_SERVER_PORT, NULL};
 
 // When Break is pressed (or SIGTERM recevied) this var is set to 1 by the signal handler fn to exit loops

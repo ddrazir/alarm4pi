@@ -239,7 +239,6 @@ int init_polling(volatile int *exit_polling, const char *capture_path, char *msg
                log_printf("Polling thread initiated\n");
             else
                log_printf("Error %i creating polling thread: %s\n", ret_err, strerror(ret_err));
-
            }
         }
      }

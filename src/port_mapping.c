@@ -9,7 +9,6 @@
 char *Port_mappings[][5]=
   { // LAN addr (NULL for local host), WAN port, LAN port, protocol, description
    {NULL, "22", "22", "TCP", "SSH RPi"},
-//   {NULL, "8080", "8080", "TCP", "webcam RPi"},
    {NULL, WEB_SERVER_PORT, WEB_SERVER_PORT, "TCP", "webcam RPi"},
    {NULL, NULL, NULL, NULL, NULL}
   };
@@ -19,7 +18,7 @@ int config_UPNP(char *wan_address)
    int fn_error = 0;
    //get a list of upnp devices (asks on the broadcast address and returns the responses)
    struct UPNPDev *upnp_dev_list;
-   
+
 // Argument of function upnpDiscover have changed from version 1.9 to version 2.1 of libminiupnpc-dev
 #if MINIUPNPC_API_VERSION > 10
    upnp_dev_list = upnpDiscover(1000,    //timeout in milliseconds
@@ -46,7 +45,7 @@ int config_UPNP(char *wan_address)
       struct UPNPUrls upnp_urls;
       struct IGDdatas upnp_data;
       int get_IGD_status;
-      
+
       log_printf("List of UPNP devices found on the network :\n");
       for(cur_upnp_dev = upnp_dev_list; cur_upnp_dev != NULL; cur_upnp_dev = cur_upnp_dev->pNext)
          log_printf("-Descr. URL: %s\n service type: %s\n", cur_upnp_dev->descURL, cur_upnp_dev->st);
@@ -80,10 +79,10 @@ int config_UPNP(char *wan_address)
          for(map_index=0;Port_mappings[map_index][1]!=NULL;map_index++)
            {
             char *curr_lan_addr;
-            
+
             // Port_mappings[]={LAN addr, WAN port, LAN port, protocol, description}
             curr_lan_addr=(Port_mappings[map_index][0] == NULL)?lan_address:Port_mappings[map_index][0];
-            
+
             fn_error = UPNP_AddPortMapping(
                upnp_urls.controlURL,
                upnp_data.first.servicetype,
@@ -114,7 +113,7 @@ int config_UPNP(char *wan_address)
             char map_remote_host        [64] = "";
             char map_lease_duration     [16] = ""; // original time, not remaining time :(
             char map_index_str[10];
-            
+
             sprintf(map_index_str, "%d", map_index);
             get_entry_error = UPNP_GetGenericPortMappingEntry(
                     upnp_urls.controlURL            ,
