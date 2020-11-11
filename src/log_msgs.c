@@ -18,8 +18,16 @@ int Console_messages=1; // Indicate whether info messages should be printed in c
 
 FILE *Log_file_handle=NULL, *Event_file_handle=NULL; // File handle to write debug messages
 
-// Get date and time string and store it in the specified buffer of specified max lentgh
-void get_localtime_str(char *cur_time_str, size_t cur_time_str_len)
+#define MAX_TIMESTAMP_LEN 19 // As defined in the format string of get_localtime_Stamp()
+
+// Obtain a date-and-time string and store it in the specified buffer of specified max length
+void get_localtime_stamp(char *cur_time_str, size_t cur_time_str_len)
+  {
+   get_localtime_str(cur_time_str, cur_time_str_len, "%Y-%m-%d %H:%M:%S");
+  }
+
+// Get a time string with the specified format and store it in a buffer of specified max length
+void get_localtime_str(char *cur_time_str, size_t cur_time_str_len, const char *str_fmt)
   {
    time_t cur_time;
    struct tm *cur_time_struct;
@@ -28,7 +36,7 @@ void get_localtime_str(char *cur_time_str, size_t cur_time_str_len)
    if(cur_time != (time_t)-1)
      {
       cur_time_struct = localtime(&cur_time); // Use local time (not UTC)
-      if(strftime(cur_time_str, cur_time_str_len, "%Y-%m-%d %H:%M:%S", cur_time_struct)==0) // No output 
+      if(strftime(cur_time_str, cur_time_str_len, str_fmt, cur_time_struct)==0) // No output 
          if(cur_time_str_len>0) // if strftime() returns 0, the contents of the array may be undefined
             cur_time_str[0]='\0'; // Terminate string
      }
@@ -49,9 +57,7 @@ int msg_printf(FILE *out_file_handle, const char *format, ...)
      {
       int printf_ret=0,fprintf_ret=0;
       va_list arglist;
-      char cur_time_str[20];
 
-	   get_localtime_str(cur_time_str, sizeof(cur_time_str));
       if(Console_messages)
         {
          va_start(arglist, format);
@@ -61,6 +67,10 @@ int msg_printf(FILE *out_file_handle, const char *format, ...)
 
       if(out_file_handle != NULL)
         {
+         char cur_time_str[MAX_TIMESTAMP_LEN+1];
+
+         get_localtime_stamp(cur_time_str, sizeof(cur_time_str));
+
          va_start(arglist, format);
          fprintf(out_file_handle, "[%s] ",cur_time_str);
          fprintf_ret=vfprintf(out_file_handle, format, arglist);
@@ -83,7 +93,7 @@ FILE *open_msg_file(const char *file_name, long max_file_len)
      {
       long log_size;
       size_t log_size_loaded;
-      char cur_time_str[20];
+      char cur_time_str[MAX_TIMESTAMP_LEN+1];
 
       flock(fileno(file_handle), LOCK_UN); // Remove existing file lock held by this process
       setbuf(file_handle, NULL); // Disable file buffer: Otherwise several processes may write simultaneously to this same file using different buffers
@@ -105,7 +115,7 @@ FILE *open_msg_file(const char *file_name, long max_file_len)
             file_handle = fopen(file_name,"wt"); // Delete previous log file content
             if (file_handle)
               {
-               get_localtime_str(cur_time_str, sizeof(cur_time_str));
+               get_localtime_stamp(cur_time_str, sizeof(cur_time_str));
 
                fprintf(file_handle,"\n[%s] <Old messages deleted>\n\n", cur_time_str);
                fwrite(log_file_buf, sizeof(char), log_size_loaded, file_handle);
@@ -115,8 +125,8 @@ FILE *open_msg_file(const char *file_name, long max_file_len)
 
       if(file_handle)
         {
-         get_localtime_str(cur_time_str, sizeof(cur_time_str));
-         fprintf(file_handle, "\n[%s] --------------------- Log initiated ---------------------\n", cur_time_str);     
+         get_localtime_stamp(cur_time_str, sizeof(cur_time_str));
+         fprintf(file_handle, "\n[%s] --------------------- Log initiated ---------------------\n", cur_time_str);
          fprintf(file_handle, "[%s] alarm4pi daemon running\n", cur_time_str);
         }
      }
@@ -128,9 +138,9 @@ void close_log_file(FILE *file_handle)
   {
    if(file_handle)
      {
-      char cur_time_str[20];
+      char cur_time_str[MAX_TIMESTAMP_LEN+1];
 
-      get_localtime_str(cur_time_str, sizeof(cur_time_str));
+      get_localtime_stamp(cur_time_str, sizeof(cur_time_str));
       fprintf(file_handle,"[%s] alarm4pi daemon terminated\n\n", cur_time_str);
       fclose(file_handle);
      }
@@ -138,32 +148,14 @@ void close_log_file(FILE *file_handle)
 
 int open_log_files(const char *log_file_path)
   {
-   int ret_error;
    char full_log_filename[PATH_MAX+1];
    char *filename_start;
    int mkdir_ret;
+   int ret_error;
 
-   if(log_file_path == NULL || strlen(log_file_path) >= PATH_MAX)
-      return(EINVAL);
-
-   if(log_file_path[0] != '/') // Relative path specified: we fist obtain the current executable directory
-     {
-      ret_error = get_current_exec_path(full_log_filename, PATH_MAX);
-      if(ret_error == 0) // Directory of current executable successfully obtained
-        {
-         if(strlen(full_log_filename)+strlen(log_file_path) <= PATH_MAX) // we check that the total path of the log files is not too long
-            strcat(full_log_filename, log_file_path);
-         else // Error path too long: we will try to open log files with relative path anyway
-            strcpy(full_log_filename, log_file_path);
-        }
-      else // Error getting executable dir: try to open file with relative path
-        {
-         syslog(LOG_WARNING,"When opening log files: Error obtaining the directory of the current-process executable file: errno=%d\n", ret_error);
-         strcpy(full_log_filename, log_file_path);
-        }
-     }
-   else // Absolute path specified: use it directly with fopen()
-      strcpy(full_log_filename, log_file_path);
+   ret_error=get_absolute_path(full_log_filename, log_file_path);
+   if(ret_error != 0)
+      syslog(LOG_WARNING,"When opening log files: Error obtaining the absolute directory (by using the current-process executable file path): errno=%d\n", ret_error);
 
    // Create the directory for contaning the log files
    mkdir_ret = mkdir(full_log_filename, 0777);

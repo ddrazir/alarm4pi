@@ -33,7 +33,12 @@
 
 
 // Directory where the log files will be created (or appended)
+// (must finish with '/')
 #define LOG_FILE_PATH "./log/"
+
+// Directory where a camera frame will be stored each time an alarm event occurs
+// (must finish with '/')
+#define CAPTURE_IMAGE_PATH "./captures/"
 
 //#define SENSOR_POLLING_PERIOD_SEC 1
 // configure_timer(SENSOR_POLLING_PERIOD_SEC); // Activate timer
@@ -110,7 +115,12 @@ int main(int argc, char *argv[])
       char **exec_abs_args;
       int run_prog_ret;
 
-      // info_msg_fmt containt a format string with an explicit conversion specifier %s for the public server IP
+      // Since the console output is not allowed for the daemon, we delete the
+      // standard C library buffer that may accumulate the unprinted strings
+      setbuf(stdout,NULL);
+
+      // info_msg_fmt containt a format string with an explicit conversion
+      //  specifier %s for the public server IP
       snprintf(info_msg_fmt, sizeof(info_msg_fmt), "Server: http://%%s:"WEB_SERVER_PORT);
       syslog(LOG_NOTICE, "alarm4pi daemon started.");
 
@@ -125,11 +135,12 @@ int main(int argc, char *argv[])
 
       exec_abs_args = replace_relative_path_array(Web_server_exec_args);
       run_prog_ret = run_background_command(&child_proc_id, exec_abs_args[0], exec_abs_args);
-      free_substring_array(exec_abs_args );
+      free_substring_array(exec_abs_args);
+
       if(run_prog_ret == 0)
         {
          Child_process_ids[num_child_processes++]=child_proc_id;
-         log_printf("Web server child process %s executed\n", Web_server_exec_args[0]);
+         log_printf("Created child process for web server %s\n", Web_server_exec_args[0]);
 #ifdef REVERSE_TUNNELING
            {
             size_t cur_info_msg_fmt_len;
@@ -142,21 +153,20 @@ int main(int argc, char *argv[])
             if(run_prog_ret == 0)
               {
                Child_process_ids[num_child_processes++]=child_proc_id;
-               log_printf("Reverse-tunneling child process %s executed\n", Tunneling_exec_args[0]);
-               log_printf("%s\n", info_msg_fmt + cur_info_msg_fmt_len);
+               log_printf("Created child process for reverse-tunneling %s\n", Tunneling_exec_args[0]);
+               log_printf("Tunneling process output: %s\n", info_msg_fmt + cur_info_msg_fmt_len);
               }
            }
 #endif
        }
 
-      main_err = init_polling(&Exit_daemon_loop, info_msg_fmt);
+      main_err = init_polling(&Exit_daemon_loop, CAPTURE_IMAGE_PATH, info_msg_fmt);
       if(main_err == 0) // Success
         {
          wait_polling_end();
         }
       else
-         log_printf("Polling thread has not been created.\n");
-
+         log_printf("Error: The polling thread has not been created.\n");
 
 
       sleep(1);
@@ -169,7 +179,6 @@ int main(int argc, char *argv[])
       // The system timer (used for polling) is stopped by this function
       // 5
       wait_processes(Child_process_ids, sizeof(Child_process_ids)/sizeof(pid_t), 0);
-
 
       close_log_files();
       syslog(LOG_NOTICE, "alarm4pi daemon ended.");

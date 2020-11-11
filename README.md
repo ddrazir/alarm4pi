@@ -6,16 +6,20 @@ called Raspberry Pi OS).
 
 ## Description
 alarm4pi monitors the state of a presence-detection sensor (PIR sensor) and
-send a notification to the user mobile phone through the Internet. alarm4pi
-also implement a web streaming server so the user can remotelly watch through
-the Raspberry Pi camera.
+when it is activated, a notification is sent to the user's mobile phone
+through the Internet and a photograph is taken by means of the Raspberry Pi's
+camera and stored in the 'captures' directory.
+alarm4pi also implement a web streaming server so the user can remotelly watch
+through the Raspberry Pi camera at any moment and manage the state of the alarm
+system and activate/deactivate ralays connected to the Raspberry Pi's GPIO pins.
 
 ### Required hardware
 This alarm system is intended to be a do-it-yourself device and requires the
 following hardware to be attached to your Raspberry Pi:
 * PIR sensor which must be connected to the GPIO 17 (pin 11 in pin header)
 * The Raspberry camera connected to the camera port
-* Optionally a realy switch can be connected to a GPIO to switch on a light
+* Optionally up to 4 realy switch can be connected to GPIO 8, 9, 10 and 11, for
+example to remotelly switch on/off a light.
 
 ### Required software
 alarm4pi is composed of the following software components:
@@ -23,7 +27,7 @@ alarm4pi is composed of the following software components:
 (originally created by Tom Stöveken). It is already included
 in the alarm4pi repository, but it must be compiled manually serparately.
 * Pushover: This app (available for iOS and Android) must be (purchased and)
-instaled in the user mobile phone in order to receibe the intrusion and
+instaled in the user's mobile phone in order to receibe the intrusion and
 information notifications from alarm4pi.
 * SocketXP (optional): if your Raspberry Pi is connected to the Internet
 through an Internet service provider that uses CG-NAT (carrier-grade network

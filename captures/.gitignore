@@ -1,0 +1,4 @@
+# Ignore all the files in the capture directory
+*
+# Except this file
+!.gitignore

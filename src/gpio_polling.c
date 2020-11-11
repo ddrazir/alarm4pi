@@ -1,12 +1,21 @@
 #include <pthread.h>
 #include <string.h>
 #include <unistd.h>
+#include <errno.h>
 #include <arpa/inet.h> //INET6_ADDRSTRLEN
+#include <linux/limits.h> // For PATH_MAX
+// For waitpid();
+#include <sys/types.h>
+#include <sys/wait.h>
+// For mkdir:
+#include <sys/stat.h>
+#include <sys/types.h>
 
 #include "bcm_gpio.h"
 #include "log_msgs.h"
 #include "public_ip.h"
 #include "pushover.h"
+#include "proc_helper.h"
 
 #define PUSHOVER_CONFIG_FILENAME "pushover_conf.txt"
 
@@ -19,6 +28,9 @@
 pthread_t Polling_thread_id;
 // General info string which is added to every msg sent
 char Msg_info_str[INET6_ADDRSTRLEN+100];
+
+// Directory where the images captures by the camera will be stored
+char Full_capture_path[PATH_MAX+1];
 
 /*
       // Write GPIO value
@@ -61,6 +73,64 @@ int update_ip_msg(char *msg_info_fmt)
    return(ret_err);
   }
 
+#define MAX_TIME_FILENAME_LEN 19
+
+// Obtain a date-and-time string and store it in the specified buffer of specified max length
+void get_localtime_filename(char *cur_time_str, size_t cur_time_str_len)
+  {
+   get_localtime_str(cur_time_str, cur_time_str_len, "%Y-%m-%d_%H_%M_%S");
+  }
+
+#define IMAGE_FILENAME_END "_%02d.jpg"
+
+void capture_images(void)
+  {
+   char full_image_file_path[PATH_MAX+1];
+   // raspistill parameters used:
+   // -n: no preview
+   // -q 10: image quality 10 % (quality 100 means almost completely uncompressed)
+   // -bm: burst capture mode: The camera does not return to preview mode between captures, allowing captures to be taken closer together
+   // -tl 1000: 1000 ms time between shots. %d must be specified in the filename for the counter
+   // -t 2000: 2000 ms time before the camera (takes picture and) shuts down. 2000/1000=2 images will be take
+   // -th none: no thumbnail will be inserted into the JPEG file
+   char * const capture_exec_args[]={"raspistill", "-n", "-w", "640", "-h", "480", "-q", "10", "-o", full_image_file_path, "-bm", "-tl", "1000", "-t", "2000", "-th", "none", NULL};
+//   char * const capture_exec_args[]={"touch", full_image_file_path, NULL};
+   pid_t capture_proc_id;
+   int capture_run_ret;
+   char image_filename[MAX_TIME_FILENAME_LEN+sizeof(IMAGE_FILENAME_END)+1];
+
+   get_localtime_filename(image_filename, sizeof(image_filename));
+   strcat(image_filename, IMAGE_FILENAME_END);
+   if(strlen(Full_capture_path)+strlen(image_filename) < sizeof(full_image_file_path))
+     {
+      strcpy(full_image_file_path, Full_capture_path);
+      strcat(full_image_file_path, image_filename);
+
+      capture_run_ret = run_background_command(&capture_proc_id, capture_exec_args[0], capture_exec_args);
+      if(capture_run_ret == 0)
+        {
+         int wait_ret;
+
+         wait_ret=waitpid(capture_proc_id, NULL, 0); // wait for the capture process to finish
+         if(wait_ret != -1) // Error returned
+            event_printf("Photographs have been taken: %s\n", full_image_file_path);
+         else
+            log_printf("Error waiting for the capture process to finish\n", capture_exec_args[0]);
+        }
+      else
+         log_printf("Capture child process (%s) could not be executed\n", capture_exec_args[0]);
+     }
+   else
+      log_printf("The complete captured image filename (%s) could not be composed: path too long\n", image_filename);
+  }
+
+void on_alarm_event(void)
+  {
+   event_printf("GPIO PIR (%i) value != 0\n", PIR_GPIO);
+   send_info_notif("PIR sensor activated", "2");
+   capture_images();
+  }
+
 void* polling_thread(volatile int *exit_polling)
   {
    int ret_err;
@@ -91,8 +161,7 @@ void* polling_thread(volatile int *exit_polling)
                  {
                   if(curr_pir_value != 0)
                     {
-                     event_printf("GPIO PIR (%i) value: %i\n", PIR_GPIO, curr_pir_value);
-                     send_info_notif("PIR sensor activated", "2");
+                     on_alarm_event();
                     }
                   last_pir_value = curr_pir_value;
                  }
@@ -127,9 +196,28 @@ void* polling_thread(volatile int *exit_polling)
    return((void *)(intptr_t)read_err); // initially we do not know the sizeof(void *), so cast to intptr_t which has the same size to avoid warning
   }
 
-int init_polling(volatile int *exit_polling, char *msg_info_fmt)
+int init_polling(volatile int *exit_polling, const char *capture_path, char *msg_info_fmt)
   {
    int ret_err;
+   int mkdir_ret;
+
+   ret_err=get_absolute_path(Full_capture_path, capture_path);
+   if(ret_err != 0)
+     {
+      log_printf("Error obtaining the absolute capture path from %s (by using the current-process executable file path): errno=%d\n", capture_path, ret_err);
+      return(ret_err);
+     }
+
+   // Create the directory for storing captured images
+   mkdir_ret = mkdir(Full_capture_path, 0777);
+   if(mkdir_ret == -1 && errno != EEXIST) // If an error occurred and it is different from 'File exists': exit
+     {
+      ret_err=errno;
+      log_printf("The capture file directory (%s) cannot be created: errno=%d\n", Full_capture_path, ret_err);
+      return(ret_err);
+     }
+
+//   capture_images();
 
    ret_err=export_gpios(); // This function and configure_gpios() will log error messages
    if(ret_err==0)

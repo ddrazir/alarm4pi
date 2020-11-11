@@ -7,6 +7,19 @@
 // Get the full path of the directory where the main executable is found.
 int get_current_exec_path(char *exec_path, size_t path_buff_len);
 
+// Convert the specified path to an absolute path, for this, the directory
+// where the current executable file is located is used as the current
+// directory.
+// *orig_file_path is the original path. It must not be longer than MAX_PATH.
+// If it start with '\' it is returned unchanged.
+// full_abs_path is the array where the resultant path will be returned.
+// if must have capacity to store at least MAX_PATH+1 characters.
+// If the fn succeeds, 0 is returned, otherwise an errno code is returned.
+// If an error different from EINVAL occurs, the original path is returned
+// in the full_abs_apth. EINVAL is returned if orig_file_apth is NULL or
+// it contains a string longer than MAX_PATH.
+int get_absolute_path(char *full_abs_path, const char *orig_file_path);
+
 // Search for a substring (as a word start) inside of a string and
 // return a pointer to the substring inside the string. If it is not found,
 // NULL is returned.

@@ -4,7 +4,7 @@
 #include <unistd.h> // for readlink
 #include <errno.h> // for errno var and value definitions
 #include <libgen.h> // For basename
-#include <linux/limits.h> // For MAXPATH
+#include <linux/limits.h> // For PATH_MAX
 #include <sys/time.h>
 #include <fcntl.h>
 #include <time.h> // for time()
@@ -91,6 +91,34 @@ int get_current_exec_path(char *exec_path, size_t path_buff_len)
      }
    else
       ret_error=EINVAL;
+   return(ret_error);
+  }
+
+int get_absolute_path(char *full_abs_path, const char *orig_file_path)
+  {
+   int ret_error;
+   if(orig_file_path == NULL || strlen(orig_file_path) > PATH_MAX)
+      return(EINVAL);
+
+   if(orig_file_path[0] != '/') // Relative path specified: we fist obtain the current executable $
+     {
+      ret_error = get_current_exec_path(full_abs_path, PATH_MAX);
+      if(ret_error == 0) // Directory of current executable successfully obtained
+        {
+         if(strlen(full_abs_path)+strlen(orig_file_path) <= PATH_MAX) // we check that the total p$
+            strcat(full_abs_path, orig_file_path);
+         else // Error path too long: we will try to open files with relative path anyway
+            strcpy(full_abs_path, orig_file_path);
+        }
+      else // Error getting executable dir: return the relative path
+        {
+         ret_error = errno;
+         strcpy(full_abs_path, orig_file_path);
+        }
+     }
+   else // Absolute path specified: return it with no changes
+      strcpy(full_abs_path, orig_file_path);
+
    return(ret_error);
   }
 
@@ -275,18 +303,23 @@ int run_background_command(pid_t *new_proc_id, const char *exec_filename, char *
   {
    int ret;
 
+   if(Log_file_handle != NULL)
+      fflush(Log_file_handle);
+   if(Event_file_handle != NULL)
+      fflush(Event_file_handle);
+
    *new_proc_id = fork(); // Fork off the parent process
 
    if(*new_proc_id == 0) // Fork off child
      {
       int null_fd_rd;
+
       if(Log_file_handle != NULL)
         {
          if(dup2(fileno(Log_file_handle), STDOUT_FILENO) == -1)
             log_printf("Creating process %s: child failed to redirect standard output. errno=%d\n",exec_filename,errno);
          if(dup2(fileno(Log_file_handle), STDERR_FILENO) == -1)
             log_printf("Creating process %s: child failed to redirect standard error output. errno=%d\n",exec_filename,errno);
-         fclose(Log_file_handle);
         }
       if(Event_file_handle != NULL)
          fclose(Event_file_handle);
@@ -302,12 +335,16 @@ int run_background_command(pid_t *new_proc_id, const char *exec_filename, char *
          log_printf("Creating process %s: child could not open null device for reading. errno=%d\n",exec_filename,errno);
          close(STDIN_FILENO); // The dup2() fn already silently close the new_fd
         }
-
       // When executable file is not in the current directory, at least the
       // first execvp() parameter must be preceded by the path to the executable file
       execvp(exec_filename, exec_argv);
 
-      log_printf("Creating process %s: failed to execute program. errno=%d\n",exec_filename,errno);
+      close(STDOUT_FILENO);
+      close(STDERR_FILENO);
+
+      log_printf("Failed to execute program %s. errno=%d\n",exec_filename,errno);
+      if(Log_file_handle != NULL)
+         fclose(Log_file_handle);
       exit(errno); // exec failed, exit child
      }
    else
@@ -332,6 +369,11 @@ int run_background_command_out_fd(pid_t *new_proc_id, int *output_fd, const char
 
    if(pipe(pipe_stdout) == 0)
     {
+      if(Log_file_handle != NULL)
+         fflush(Log_file_handle);
+      if(Event_file_handle != NULL)
+         fflush(Event_file_handle);
+
       *new_proc_id = fork(); // Fork off the parent process
 
       if(*new_proc_id == 0) // Fork off child
@@ -366,6 +408,9 @@ int run_background_command_out_fd(pid_t *new_proc_id, int *output_fd, const char
           }
 
          execvp(exec_filename, exec_argv);
+
+         close(STDOUT_FILENO);
+         close(STDERR_FILENO);
 
          log_printf("Creating process %s: child failed to execute program. errno=%d\n",exec_filename,errno);
          if(Log_file_handle != NULL)
