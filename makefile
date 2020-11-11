@@ -21,10 +21,12 @@ $(EXEC): $(OBJECTS)
 
 # To obtain object files which use header file
 $(ODIR)/%.o: $(SDIR)/%.c $(SDIR)/%.h
+	@mkdir -p $(ODIR)
 	$(CC) -c $< -o $@ $(CC_FLAGS)
 
 # To obtain object files which do not use header
 $(ODIR)/%.o: $(SDIR)/%.c
+	@mkdir -p $(ODIR)
 	$(CC) -c $< -o $@ $(CC_FLAGS)
 
 # To remove generated temporary files
