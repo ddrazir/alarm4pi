@@ -7,6 +7,10 @@
 #include <string.h>
 #include <errno.h>
 #include <syslog.h>
+// For mkdir:
+#include <sys/stat.h>
+#include <sys/types.h>
+
 #include "log_msgs.h"
 #include "proc_helper.h" // for get_current_exec_path()
 
@@ -33,7 +37,6 @@ void get_localtime_str(char *cur_time_str, size_t cur_time_str_len)
       if(cur_time_str_len>0) // Error getting time, terminate string
          cur_time_str[0]='\0';
      }
-
   }
 
 // Print debug messaages (event or log) using printf argument format.
@@ -138,6 +141,7 @@ int open_log_files(const char *log_file_path)
    int ret_error;
    char full_log_filename[PATH_MAX+1];
    char *filename_start;
+   int mkdir_ret;
 
    if(log_file_path == NULL || strlen(log_file_path) >= PATH_MAX)
       return(EINVAL);
@@ -149,7 +153,7 @@ int open_log_files(const char *log_file_path)
         {
          if(strlen(full_log_filename)+strlen(log_file_path) <= PATH_MAX) // we check that the total path of the log files is not too long
             strcat(full_log_filename, log_file_path);
-         else // Error path too long: try to open file with relative path
+         else // Error path too long: we will try to open log files with relative path anyway
             strcpy(full_log_filename, log_file_path);
         }
       else // Error getting executable dir: try to open file with relative path
@@ -161,6 +165,11 @@ int open_log_files(const char *log_file_path)
    else // Absolute path specified: use it directly with fopen()
       strcpy(full_log_filename, log_file_path);
 
+   // Create the directory for contaning the log files
+   mkdir_ret = mkdir(full_log_filename, 0777);
+   if(mkdir_ret == -1 && errno != EEXIST) // If an error occurred and it is different from 'File exists' (that is, the directory already exists), warn it:
+      syslog(LOG_WARNING,"The log file directory (%s) cannot be created: errno=%d\n", full_log_filename, errno);
+
    // Pointer to the start of the log filenames in the full_log_filename array
    filename_start=full_log_filename+strlen(full_log_filename);
 
@@ -168,12 +177,16 @@ int open_log_files(const char *log_file_path)
      {
       strcpy(filename_start, LOG_FILE_NAME);
       Log_file_handle=open_msg_file(full_log_filename, MAX_PREV_MSG_FILE_SIZE);
+      if(Log_file_handle == NULL)
+         syslog(LOG_WARNING,"The daemon log file (%s) cannot be created or opened: errno=%d\n", full_log_filename, errno);
      }
 
    if(strlen(full_log_filename)+strlen(EVENT_FILE_NAME) <= PATH_MAX) // we check that the total filename of the event file is not too long
      {
       strcpy(filename_start, EVENT_FILE_NAME);
       Event_file_handle=open_msg_file(full_log_filename, MAX_PREV_MSG_FILE_SIZE);
+      if(Event_file_handle == NULL)
+         syslog(LOG_WARNING,"The event log file (%s) cannot be created or opened: errno=%d\n", full_log_filename, errno);
      }
 
    return(Log_file_handle == NULL || Event_file_handle == NULL);

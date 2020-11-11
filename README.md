@@ -102,7 +102,7 @@ cd mjpg-streamer-master/mjpg-streamer-experimental
 ```
 and then browsing the site http://localhost:8008 in the Raspberry Pi browser.
 
-### alarm4pi compilation
+## alarm4pi compilation
 Before compiling alarm4pi you must install the following dependencies:
 * libminiupnpc-dev
 * gcc
@@ -111,7 +111,20 @@ Since gcc was installed before for mjpg-streamer, you just need to type:
 ``` sudo apt-get install libminiupnpc-dev ```
 and then execute ```make``` in the project directory
 
-### alarm4pi service install ###
+## alarm4pi service install ###
 The install_service.sh script can be executed to create a systemd service
 that will automatically start alarm4pi on boot. This script can be executed typing:
 ``` sudo ./install_service.sh ```
+
+## Log files
+alarm4pi creates 2 log files in the log directory.
+
+### daemon.log
+In this file alarm4pi registers the actions taken, especially during program
+initiallation and termination. If an error occurred, it is reported in this
+file so that the user can address it.
+
+### evets.log
+In this file alarm4pi registers the alarm events, that is, the activations of
+the PIR sensor.
+

@@ -20,7 +20,7 @@
 // for the web server. This is usefull when your Internet service provider is
 // using CG-NAT (carrier grade network address translation) and the Raspnerry
 // Pi cannot receive incomming connections from the Internet
-#define REVERSE_TUNNELING 1
+//#define REVERSE_TUNNELING 1
 
 
 // Only needed when the web server is installed
@@ -39,11 +39,10 @@
 // configure_timer(SENSOR_POLLING_PERIOD_SEC); // Activate timer
 
 // List of child processes:
-pid_t Child_process_ids[2] = {-1, -1}; // Initialize to -1 in order not to send signals if no child process created
+pid_t Child_process_ids[2] = {-1, -1}; // Initialize to -1 in order not to send signals if no child process was created
 
 char * const Web_server_exec_args[]={WEB_SERVER_BIN_PATH"mjpg_streamer", "-i", WEB_SERVER_BIN_PATH"input_raspicam.so", "-o", WEB_SERVER_BIN_PATH"output_http.so -w ./www -p "WEB_SERVER_PORT, NULL}; // WEB_SERVER_PORT is defined in port_mapping.h
 char * const Tunneling_exec_args[]={"socketxp", "connect", "http://localhost:"WEB_SERVER_PORT, NULL};
-char * const Capture_exec_args[]={"raspistill", "-n", "-w", "640", "-h", "480", "-q", "10", "-o", "/tmp_ram/webcam_pic.jpg", "-bm", "-tl", "700", "-t", "0", "-th", "none", NULL};
 
 // When Break is pressed (or SIGTERM recevied) this var is set to 1 by the signal handler fn to exit loops
 volatile int Exit_daemon_loop=0; // We may use sig_atomic_t in the declaration instead of int, but this is not needed
@@ -115,8 +114,7 @@ int main(int argc, char *argv[])
       snprintf(info_msg_fmt, sizeof(info_msg_fmt), "Server: http://%%s:"WEB_SERVER_PORT);
       syslog(LOG_NOTICE, "alarm4pi daemon started.");
 
-      if(open_log_files(LOG_FILE_PATH))
-         syslog(LOG_WARNING, "Error creating log files in path "LOG_FILE_PATH);
+      open_log_files(LOG_FILE_PATH);
 
       set_signal_handler();
 

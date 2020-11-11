@@ -256,7 +256,7 @@ int wait_processes(pid_t *process_ids, size_t n_processes, int wait_timeout)
                  {
                   log_printf("Child process with PID: %i terminated.\n", wait_ret);
                   process_ids[n_child] = -1; // Mark process as dead
-                }
+                 }
                else
                   n_remaining_procs++; // We still have to wait for his process
               }
@@ -572,6 +572,5 @@ int daemonize(char *working_dir)
       fprintf(stderr,"iAlarm daemon init error: first fork failed. errno=%d\n",errno);
      }
 
-      
    return(ret_error);
   }
