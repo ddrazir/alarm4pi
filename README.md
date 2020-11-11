@@ -106,6 +106,7 @@ and then browsing the site http://localhost:8008 in the Raspberry Pi browser.
 Before compiling alarm4pi you must install the following dependencies:
 * libminiupnpc-dev
 * gcc
+
 Since gcc was installed before for mjpg-streamer, you just need to type:
 ``` sudo apt-get install libminiupnpc-dev ```
 and then execute ```make``` in the project directory
