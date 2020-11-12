@@ -14,10 +14,12 @@
 #include "bcm_gpio.h"
 #include "log_msgs.h"
 #include "public_ip.h"
+#include "owncloud.h"
 #include "pushover.h"
 #include "proc_helper.h"
 
 #define PUSHOVER_CONFIG_FILENAME "pushover_conf.txt"
+#define OWNCLOUD_CONFIG_FILENAME "owncloud_conf.txt"
 
 // The sensor value will be checked each (in seconds):
 #define PIR_POLLING_PERIOD_SECS 1
@@ -217,29 +219,29 @@ int init_polling(volatile int *exit_polling, const char *capture_path, char *msg
       return(ret_err);
      }
 
-//   capture_images();
-
    ret_err=export_gpios(); // This function and configure_gpios() will log error messages
    if(ret_err==0)
      {
       ret_err=configure_gpios();
       if(ret_err==0)
         {
+         ret_err=owncloud_init(OWNCLOUD_CONFIG_FILENAME, Full_capture_path);
+         if(ret_err != 0)
+            log_printf("The captured image upload is disabled!\n");
+
          ret_err=pushover_init(PUSHOVER_CONFIG_FILENAME);
-         if(ret_err == 0)
-           {
-            Msg_info_str[0]='\0'; // Clear message info string so that update_ip_msg can compare it, detect a change and update it with the public IP
-            update_ip_msg(msg_info_fmt);
+         if(ret_err != 0)
+            log_printf("The alarm-event notification is disabled!\n");
 
-
-
-            // Create joinable thread
-            ret_err = pthread_create(&Polling_thread_id, NULL, (void *(*)(void *))&polling_thread, (void *)exit_polling);
-            if(ret_err == 0) // If success
-               log_printf("Polling thread initiated\n");
-            else
-               log_printf("Error %i creating polling thread: %s\n", ret_err, strerror(ret_err));
-           }
+         Msg_info_str[0]='\0'; // Clear message info string so that update_ip_msg can compare it, detect a change and update it with the public IP
+         update_ip_msg(msg_info_fmt); // Msg_info_str is updated
+upload_captures();
+         // Create joinable thread
+         ret_err = pthread_create(&Polling_thread_id, NULL, (void *(*)(void *))&polling_thread, (void *)exit_polling);
+         if(ret_err == 0) // If success
+            log_printf("Polling thread initiated\n");
+         else
+            log_printf("Error %i creating polling thread: %s\n", ret_err, strerror(ret_err));
         }
      }
 

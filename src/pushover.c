@@ -39,13 +39,17 @@
 #define RETRY_TIME_SEC 31
 #define EXPIRE_TIME_SEC 120
 
+// Invalid value for UDP/TCP address port
+#define INVALID_ADDR_PORT -1
+
 // Global variables obatined or derived from config file data by init fn
 char Token_id[MAX_CONF_STR_LEN+1];
 char User_id[MAX_CONF_STR_LEN+1];
 char Server_name[HOST_NAME_MAX+1];
 char Server_path[HOST_NAME_MAX+1];
 struct in_addr Server_ip;
-int Server_port;
+// This default value indicates that the Pushover library has been correctly initialized
+int Server_port = INVALID_ADDR_PORT;
 
 int pushover_init(char *conf_filename)
   {
@@ -116,7 +120,7 @@ int pushover_init(char *conf_filename)
                      size_t server_name_len;
 
                      // Parse URL to get host name and port
-                     // Look for the server hostname start in the URL 
+                     // Look for the server hostname start in the URL
                      hostname_start_ptr=strchr(server_url+strlen(SERVER_URL_START),'@');
                      if(hostname_start_ptr == NULL) // If not user name found, assume it is the end of the URL
                         hostname_start_ptr=server_url+strlen(SERVER_URL_START);
@@ -162,37 +166,44 @@ int pushover_init(char *conf_filename)
                         // Resolve Pushover hostname
                         ret_error=hostname_to_ip(Server_name, &Server_ip);
                         if(ret_error==0)
-                          {
                            log_printf("Using Pushover server %s for notifications\n",inet_ntoa(Server_ip));
+                        else
+                          {
+                           //Server_port = INVALID_ADDR_PORT; // Set the library as not initializated
                           }
                        }
                      else
                        {
                         log_printf("Error loading Pushover config file: server URL is too long (more than " TOSTRING(HOST_NAME_MAX) " characters)\n");
+                        Server_port = INVALID_ADDR_PORT; // Set the library as not initializated
                         ret_error = EINVAL;
                        }
                     }
                   else
                     {
                      log_printf("Error loading Pushover config file: server URL start is not "SERVER_URL_START"\n");
+                     Server_port = INVALID_ADDR_PORT;
                      ret_error = EINVAL;
                     }
                  }
                else
                  {
                   log_printf("Error loading Pushover config file: user id not found\n");
+                  Server_port = INVALID_ADDR_PORT;
                   ret_error = EINVAL;
                  }
               }
             else
               {
                log_printf("Error loading Pushover config file: token id not found\n");
+               Server_port = INVALID_ADDR_PORT;
                ret_error = EINVAL;
               }
            }
          else
            {
             log_printf("Error loading Pushover config file: server URL not found\n");
+            Server_port = INVALID_ADDR_PORT;
             ret_error = EINVAL;
            }
         }
@@ -201,6 +212,7 @@ int pushover_init(char *conf_filename)
    else
      {
       ret_error=errno;
+      Server_port = INVALID_ADDR_PORT;
       log_printf("Error opening Pushover config file %s: errno=%d\n", full_conf_filename, errno);
      }
 
@@ -212,6 +224,9 @@ int send_notification(char *msg_str, char *msg_priority)
    int ret_error=0;
    int socket_fd;
    struct sockaddr_in server_addr;
+
+   if(Server_port == INVALID_ADDR_PORT) // check if the library not is initializated
+      return(EPERM);
 
    // create the socket
    socket_fd = socket(AF_INET, SOCK_STREAM, 0);

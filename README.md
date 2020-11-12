@@ -8,7 +8,8 @@ called Raspberry Pi OS).
 alarm4pi monitors the state of a presence-detection sensor (PIR sensor) and
 when it is activated, a notification is sent to the user's mobile phone
 through the Internet and a photograph is taken by means of the Raspberry Pi's
-camera and stored in the 'captures' directory.
+camera and stored in the 'captures' directory of alarm4pi. Besides, this photo
+is inmediatelly uploaded to the Owncloud server specified by the user.
 alarm4pi also implement a web streaming server so the user can remotelly watch
 through the Raspberry Pi camera at any moment and manage the state of the alarm
 system and activate/deactivate ralays connected to the Raspberry Pi's GPIO pins.
@@ -26,9 +27,9 @@ alarm4pi is composed of the following software components:
 * mjpg-streamer: This is the used web streaming server from jacksonliam
 (originally created by Tom Stöveken). It is already included
 in the alarm4pi repository, but it must be compiled manually serparately.
-* Pushover: This app (available for iOS and Android) must be (purchased and)
-instaled in the user's mobile phone in order to receibe the intrusion and
-information notifications from alarm4pi.
+* Pushover (optional): This app (available for iOS and Android) must be
+(purchased and) instaled in the user's mobile phone in order to receibe the
+intrusion and information notifications from alarm4pi.
 * SocketXP (optional): if your Raspberry Pi is connected to the Internet
 through an Internet service provider that uses CG-NAT (carrier-grade network
 address translation), it means that it is not directly accesible from the
@@ -38,6 +39,9 @@ accessible remotely when it is behind a CG-NAT a reverse tunneling mechanism
 is implemented. alarm4pi uses a service of the SocketXP company. So, if this
 is your case, you must create an account in SocketXP. Otherwise, you can
 disable the reverse tunneling mechanism of alarm4pi as described below.
+* Owncloud (optional): Apart from storing the photos taken locally, they are
+uploaded to a Owncloud server where they can be accessed even if the Raspberry
+Pi is disconnected.
 
 ## Software prerequisites and depencencies
 Before running alarm4pi you must prepare and configure some software
@@ -55,6 +59,8 @@ server_url=http://api.pushover.net/1/messages.json
 token=<token>
 user=<your user key>
 ```
+If this configuration file is not created, the notification mechanism is
+disabled.
 
 ### SocketXP (optional)
 You must manually setup the reverse tunneling mechanism (in case your
@@ -74,6 +80,26 @@ socketxp login "<your authentication token>"
 ```
 If you do not need to use reverse tunneling, you can disable this mechanism
 in alarm4pi.c by commenting the REVERSE_TUNNELING definition.
+
+### Owncloud
+You must have ac account in an Owncloud server in order for the photos to be
+uploaded. Moreover, you must manually configure the Owncloud mechanism for
+alarm4pi to upload the photos. For that, you must:
+* Install the command-line Owncloud application in your Raspberry by typing:
+``` sudo apt-get install owncloudcmd ```
+* Create a directory in your Owncloud server account called 'captures' or
+whatever name you have used for the directory storing the photos in your
+Raspberry.
+* Create the file owncloud_conf.txt in the project directory with the
+following content:
+```
+server_url=http://api.pushover.net/1/messages.json
+user=<your owncloud user>
+password=<your owncloud user password>
+```
+* configure .netrc
+
+If this configuration file is not created, the upload mechanism is disabled.
 
 ### Camera
 The Raspberry Pi camera interface must be activated in the current Raspbian

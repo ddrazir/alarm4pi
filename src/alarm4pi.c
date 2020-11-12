@@ -106,7 +106,7 @@ int main(int argc, char *argv[])
   {
    int main_err;
 
-   // main_err=daemonize("/"); // Custom fn, but it causes problems when waiting for child processes
+   // main_err=daemonize("/"); // This is a custom fn, but it causes problems when waiting for child processes
    main_err=daemon(0,0);
    if(main_err == 0)
      {
