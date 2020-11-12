@@ -129,7 +129,11 @@ int main(int argc, char *argv[])
 
       set_signal_handler();
 
-      config_UPNP(NULL);
+      if(init_UPNP(NULL) == 0)
+        {
+         add_UPNP_mapping();
+         print_UPNP_mapping();
+        }
 
       if(setenv(WSERVER_ENV_VAR_NAME, WSERVER_ENV_VAR_VAL, 0) != 0)
          log_printf("Error setting envoronment variable for child process. Errno=%i\n", errno);
@@ -180,6 +184,10 @@ int main(int argc, char *argv[])
       // The system timer (used for polling) is stopped by this function
       // 5
       wait_processes(Child_process_ids, sizeof(Child_process_ids)/sizeof(pid_t), 0);
+
+      delete_UPNP_mapping();
+      //print_UPNP_mapping();
+      terminate_UPNP();
 
       close_log_files();
       syslog(LOG_NOTICE, "alarm4pi daemon ended.");
