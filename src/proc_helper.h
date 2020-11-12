@@ -78,8 +78,8 @@ int wait_processes(pid_t *process_ids, size_t n_processes, int wait_timeout);
 void kill_processes(pid_t *process_ids, size_t n_processes);
 
 // Executes a program in a child process.
-// The PID of the created process is returned after successful execution. new_proc_id must point to
-// a var where the new PID will be stored.
+// The PID of the created process is returned after successful execution.
+// new_proc_id must point to a var where the new PID will be stored.
 // exec_filename must point to a \0 terminated string containing the program filename.
 // exec_argv is an array of pointers. Each poining to a string containing a program argument.
 // The first argument is the program filename and the last one must be a NULL pointer.
@@ -89,16 +89,25 @@ void kill_processes(pid_t *process_ids, size_t n_processes);
 // pasado "char **" podría modificar esta constante, lo cual no está permitido.
 int run_background_command(pid_t *new_proc_id, const char *exec_filename, char *const exec_argv[]);
 
-// Executes a program in a child process.
-// The PID of the created process is returned after successful execution. new_proc_id must point to
-// a var where the new PID will be stored.
-// output_array must point to a char array where the std output of the program will be stored, it is
-// size must be at least 1. The array is terminated with \0 by this function.
-// output_array_len length of the allocated array.
+// Executes a program in a child process and obtains its stdout in an array.
+// output_array must point to a char array where the std output of the program
+// will be stored. its size must be at least 1. The array is terminated with
+// \0 by this function.
+// output_array_len must be the length of the allocated array.
 // exec_filename must point to a \0 terminated string containing the program filename.
 // exec_argv is an array of pointers. Each poining to a string containing a program argument.
 // The first argument is the program filename and the last one must be a NULL pointer.
+// Returns 0 on success or an errno code.
 int run_background_command_out_array(pid_t *new_proc_id, char *output_array, size_t output_array_len, const char *exec_filename, char *const exec_argv[]);
+
+// Executes a program in a child process and feed its stdin with the content of an array.
+// input_array must point to the char array whose content will be written
+// to the std input of the program. The array must be terminated with \0.
+// exec_filename must point to a \0-terminated string containing the program filename.
+// exec_argv is an array of pointers. Each poining to a string containing a program argument.
+// The first argument is the program filename and the last one must be a NULL pointer.
+// Returns 0 on success or an errno code.
+int run_background_command_in_array(pid_t *new_proc_id, char *input_array, const char *exec_filename, char *const exec_argv[]);
 
 // Configure the system real-time timer to send a SIGALRM signal to the current process.
 // SIGALRM must be handled before calling this function.

@@ -93,11 +93,10 @@ Raspberry.
 * Create the file owncloud_conf.txt in the project directory with the
 following content:
 ```
-server_url=http://api.pushover.net/1/messages.json
+server_url==https://<your server name>/remote.php/webdav/captures/
 user=<your owncloud user>
 password=<your owncloud user password>
 ```
-* configure .netrc
 
 If this configuration file is not created, the upload mechanism is disabled.
 

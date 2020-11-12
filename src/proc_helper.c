@@ -1,7 +1,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
-#include <unistd.h> // for readlink
+#include <unistd.h> // for readlink, read, write
 #include <errno.h> // for errno var and value definitions
 #include <libgen.h> // For basename
 #include <linux/limits.h> // For PATH_MAX
@@ -434,6 +434,8 @@ int run_background_command_out_fd(pid_t *new_proc_id, int *output_fd, const char
          else // < 0: An error occurred
            {
             ret=errno;
+            close(pipe_stdout[PIPE_READ_END]);
+            close(pipe_stdout[PIPE_WRITE_END]);
             log_printf("Creating process %s: fork failed. errno=%d\n",exec_filename,errno);
            }
         }
@@ -445,7 +447,6 @@ int run_background_command_out_fd(pid_t *new_proc_id, int *output_fd, const char
      }
     return(ret);
 }
-
 
 int run_background_command_out_array(pid_t *new_proc_id, char *output_array, size_t output_array_len, const char *exec_filename, char *const exec_argv[])
   {
@@ -484,15 +485,24 @@ int run_background_command_out_array(pid_t *new_proc_id, char *output_array, siz
            }
          elapsed_time = get_elapsed_time(&init_time); // Get the time elapsed since the fn start
          // log_printf("Elapsed %d s (). Total read %d chars (max. %d). DFs: %d. Errno: %d\n",elapsed_time.tv_sec, num_output_chars, output_array_len, num_fds_ready, errno);
-        } // we continue looping if select returned no error (or was interrupted by a signal) and there is space left in the array
-      while((num_fds_ready > 0 || (num_fds_ready == -1 && errno == EINTR) || num_output_chars < MIN_VALID_PROC_OUTPUT) && elapsed_time.tv_sec < PROC_OUTPUT_READ_TIMEOUT && num_output_chars < output_array_len - 1);
 
-      if(num_fds_ready >= 0) // select() finally indicated a timeout as expected (=0) or the array is full (>0): success
+         // we continue looping if:
+         //  - (select() returned no error or was interrupted by a signal) and
+         //  - the fn has not reached the read timeout and
+         //  - there is still free space in the array and
+         //  - (select() did not indicate a timeout or num. of read chars if lower than the min.)
+        }
+      while((num_fds_ready >= 0 || (num_fds_ready == -1 && errno == EINTR)) &&
+            elapsed_time.tv_sec < PROC_OUTPUT_READ_TIMEOUT &&
+            num_output_chars < output_array_len - 1 &&
+            (num_fds_ready != 0 || num_output_chars < MIN_VALID_PROC_OUTPUT));
+
+      if(num_fds_ready >= 0 || (num_fds_ready == -1 && errno == EINTR)) // select() did not return an error: success
          ret=0;
       else // select() or read() returned -1 indicating an error
         {
          ret=errno;
-         log_printf("Creating process %s: fork failed. errno=%d\n",exec_filename,errno);
+         log_printf("Reading the child-process %s output: the waiting-for-reading operation or the reading operation itself failed. errno=%d\n",exec_filename,errno);
         }
 
       output_array[num_output_chars] = '\0';
@@ -503,6 +513,147 @@ int run_background_command_out_array(pid_t *new_proc_id, char *output_array, siz
       // (maybe this should be done in the other pipe end, which is no accesible here?)
       output_fd_flags = fcntl(output_fd, F_GETFL, 0);
       fcntl(output_fd, F_SETFL, output_fd_flags | O_NONBLOCK);
+     }
+
+   return(ret);
+  }
+
+int run_background_command_in_fd(pid_t *new_proc_id, int *input_fd, const char *exec_filename, char *const exec_argv[])
+  {
+   int pipe_stdin[2];
+   int ret;
+
+   if(pipe(pipe_stdin) == 0)
+    {
+      if(Log_file_handle != NULL)
+         fflush(Log_file_handle);
+      if(Event_file_handle != NULL)
+         fflush(Event_file_handle);
+
+      *new_proc_id = fork(); // Fork off the parent process
+
+      if(*new_proc_id == 0) // Fork off child
+        {
+         // We close the file descriptors of the pipe that the child does not need
+         // The child just reads from the pipe, so we close the unused write end
+         close(pipe_stdin[PIPE_WRITE_END]);
+
+         if(Log_file_handle != NULL)
+           {
+            if(dup2(fileno(Log_file_handle), STDOUT_FILENO) == -1)
+               log_printf("Creating process %s: child failed to redirect standard output. errno=%d\n",exec_filename,errno);
+            if(dup2(fileno(Log_file_handle), STDERR_FILENO) == -1)
+               log_printf("Creating process %s: child failed to redirect standard error output. errno=%d\n",exec_filename,errno);
+           }
+         if(Event_file_handle != NULL)
+            fclose(Event_file_handle);
+
+         if(dup2(pipe_stdin[PIPE_READ_END], STDIN_FILENO) == -1)
+            log_printf("Creating process %s: child failed to redirect standard input. errno=%d\n",exec_filename,errno);
+         close(pipe_stdin[PIPE_READ_END]); // this fd should already be duplicated by dup2() so we close the original fd
+
+         // When executable file is not in the current directory, at least the
+         // first execvp() parameter must be preceded by the path to the executable file
+         execvp(exec_filename, exec_argv);
+
+         close(STDOUT_FILENO);
+         close(STDERR_FILENO);
+
+         log_printf("Failed to execute program %s. errno=%d\n",exec_filename,errno);
+         if(Log_file_handle != NULL)
+            fclose(Log_file_handle);
+         exit(errno); // exec failed, exit child
+        }
+      else
+        {
+         if(*new_proc_id > 0)
+           {
+            // We close the file descriptors of the pipe that the parent does not need
+            // The parent just writes to the pipe, so we close the unused end for reading
+            close(pipe_stdin[PIPE_READ_END]);
+
+            if(input_fd != NULL)
+               *input_fd = pipe_stdin[PIPE_WRITE_END];
+            else
+               close(pipe_stdin[PIPE_WRITE_END]);
+
+            ret=0; // success
+           }
+         else // < 0: An error occurred
+           {
+            ret=errno;
+            close(pipe_stdin[PIPE_WRITE_END]);
+            close(pipe_stdin[PIPE_READ_END]);
+            log_printf("Creating process %s: first fork failed. errno=%d\n",exec_filename,errno);
+           }
+        }
+     }
+   else // pipe() returned -1: An error occurred
+     {
+      ret=errno;
+      log_printf("Creating process %s: pipe creation failed. errno=%d\n",exec_filename,errno);
+     }
+   return(ret);
+  }
+
+int run_background_command_in_array(pid_t *new_proc_id, char *input_array, const char *exec_filename, char *const exec_argv[])
+  {
+   int ret;
+   int input_fd;
+
+   ret=run_background_command_in_fd(new_proc_id, &input_fd, exec_filename, exec_argv);
+   if(ret==0)
+     {
+      int num_fds_ready;
+      size_t num_input_chars = 0;
+      struct timespec init_time = get_elapsed_time(NULL); // Get the current time
+      struct timespec elapsed_time;
+      size_t input_array_len = strlen(input_array);
+
+      do
+        {
+         fd_set write_fd_set;
+         struct timeval write_timeout;
+
+         FD_ZERO(&write_fd_set); // initially we clear all the set
+         FD_SET(input_fd, &write_fd_set); // we add our file descriptor to the set
+
+         write_timeout.tv_sec = 0;
+         write_timeout.tv_usec = 500000; // Each iteration waits for process output during 0.5 s
+
+         num_fds_ready = select(input_fd + 1, NULL, &write_fd_set, NULL, &write_timeout);
+         if(num_fds_ready > 0) // the fd is available for writing
+           {
+            int bytes_written;
+            bytes_written = write(input_fd, input_array + num_input_chars, input_array_len - num_input_chars);
+            if(bytes_written >= 0) // write() succeeded
+               num_input_chars += bytes_written;
+            else
+               num_fds_ready = -1; // write() failed: indicate an error to exit
+           }
+         elapsed_time = get_elapsed_time(&init_time); // Get the time elapsed since the fn start
+         // log_printf("Elapsed %d s (). Total written %d chars (max. %d). DFs: %d. Errno: %d\n",elapsed_time.tv_sec, num_input_chars, input_array_len, num_fds_ready, errno);
+
+         // we continue looping if:
+         //  - (select() returned no error or was interrupted by a signal) and
+         //  - the time is not up and
+         //  - there are pending chars to write
+        }
+      while((num_fds_ready >= 0 || (num_fds_ready == -1 && errno == EINTR)) &&
+             elapsed_time.tv_sec < PROC_OUTPUT_READ_TIMEOUT &&
+             num_input_chars < input_array_len);
+
+      if(num_fds_ready >= 0 || (num_fds_ready == -1 && errno == EINTR)) // we reached the timeout to write or the array has been fully written: success
+         ret=0;
+      else // select() or write() returned -1 indicating an error
+        {
+         ret=errno;
+         log_printf("Reading child process %s output: waiting operation or writing operation failed. errno=%d\n",exec_filename,errno);
+        }
+
+      // After finshing writing, we must deal with the file descriptor for writing.
+      // If we closed it (close(input_fd)), the reader (child process) would get an error or signal when it tries to read.
+      close(input_fd);
      }
 
    return(ret);

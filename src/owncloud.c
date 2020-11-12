@@ -149,21 +149,34 @@ int upload_captures(void)
    // -n: get the authentication credentials from the .netrc file in user home directory
    // -s: produce a succinct text output
    // --non-interactive: do not prompt asking questions
-   char * const owncloudcmd_exec_args[]={"owncloudcmd", "-s", "-n", Full_capture_path, Server_URL, NULL};
+   char * const owncloudcmd_exec_args[]={"owncloudcmd", "-s", Full_capture_path, Server_URL, NULL};
    pid_t owncloudcmd_proc_id;
    int ret_err;
+   char owncloudcmd_input[MAX_CONF_STR_LEN*2+3];
 
    if(Server_URL[0] == '\0') // Check whether the library is not (correctly) initialized
       return(EPERM);
 
-   ret_err = run_background_command(&owncloudcmd_proc_id, owncloudcmd_exec_args[0], owncloudcmd_exec_args);
+   if(sizeof(owncloudcmd_input) < strlen(User_id)+strlen(User_password)+3)
+     {
+      log_printf("Error composing the input for the owncloud-client process %s: the user or password are too long\n", owncloudcmd_exec_args[0]);
+      return(EINVAL);
+     }
+
+   // owncloudcmd will prompt for the user and password so we compose and string
+   // containing both of them and write it into its stdin
+   sprintf(owncloudcmd_input, "%s\n%s\n", User_id, User_password);
+   ret_err = run_background_command_in_array(&owncloudcmd_proc_id, owncloudcmd_input, owncloudcmd_exec_args[0], owncloudcmd_exec_args);
    if(ret_err == 0)
      {
       int wait_ret;
 
       wait_ret=waitpid(owncloudcmd_proc_id, NULL, 0); // wait for the owncloud-client process to finish
       if(wait_ret != -1) // Error returned
+        {
+         fprintf(Log_file_handle,"\n"); // We insert a carrier return to separate the child process output from the following loggin messages
          event_printf("Photographs have been uploaded to owncloud\n");
+        }
       else
         {
          ret_err=errno;
@@ -174,5 +187,3 @@ int upload_captures(void)
       log_printf("Owncloud-client child process (%s) could not be executed\n", owncloudcmd_exec_args[0]);
    return(ret_err);
   }
-
-

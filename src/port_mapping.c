@@ -19,7 +19,7 @@ int config_UPNP(char *wan_address)
    //get a list of upnp devices (asks on the broadcast address and returns the responses)
    struct UPNPDev *upnp_dev_list;
 
-// Argument of function upnpDiscover have changed from version 1.9 to version 2.1 of libminiupnpc-dev
+// Arguments of function upnpDiscover have changed from version 1.9 to version 2.1 of libminiupnpc-dev
 #if MINIUPNPC_API_VERSION > 10
    upnp_dev_list = upnpDiscover(1000,    //timeout in milliseconds
                            NULL,    //multicast address, default = "239.255.255.250"

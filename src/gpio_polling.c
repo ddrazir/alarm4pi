@@ -130,7 +130,8 @@ void on_alarm_event(void)
   {
    event_printf("GPIO PIR (%i) value != 0\n", PIR_GPIO);
    send_info_notif("PIR sensor activated", "2");
-   capture_images();
+   capture_images(); // Take some photos and store them in the 'captures' directory
+   upload_captures(); // Synchronize (upload) the contant of 'captures' directory with the owncloud server
   }
 
 void* polling_thread(volatile int *exit_polling)
@@ -235,7 +236,7 @@ int init_polling(volatile int *exit_polling, const char *capture_path, char *msg
 
          Msg_info_str[0]='\0'; // Clear message info string so that update_ip_msg can compare it, detect a change and update it with the public IP
          update_ip_msg(msg_info_fmt); // Msg_info_str is updated
-upload_captures();
+
          // Create joinable thread
          ret_err = pthread_create(&Polling_thread_id, NULL, (void *(*)(void *))&polling_thread, (void *)exit_polling);
          if(ret_err == 0) // If success

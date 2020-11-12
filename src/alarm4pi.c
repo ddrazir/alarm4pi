@@ -20,7 +20,7 @@
 // for the web server. This is usefull when your Internet service provider is
 // using CG-NAT (carrier grade network address translation) and the Raspnerry
 // Pi cannot receive incomming connections from the Internet
-#define REVERSE_TUNNELING 1
+#define REVERSE_TUNNELING
 
 
 // Only needed when the web server is installed
