@@ -111,7 +111,6 @@ FILE *open_msg_file(const char *file_name, long max_file_len)
             fseek(file_handle, -max_file_len, SEEK_END);
             log_size_loaded = fread(log_file_buf, sizeof(char), max_file_len, file_handle);
             fclose(file_handle);
-            free(log_file_buf);
             file_handle = fopen(file_name,"wt"); // Delete previous log file content
             if (file_handle)
               {
@@ -120,6 +119,7 @@ FILE *open_msg_file(const char *file_name, long max_file_len)
                fprintf(file_handle,"\n[%s] <Old messages deleted>\n\n", cur_time_str);
                fwrite(log_file_buf, sizeof(char), log_size_loaded, file_handle);
               }
+            free(log_file_buf);
            }
         }
 

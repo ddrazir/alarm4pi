@@ -75,12 +75,12 @@ int update_ip_msg(char *msg_info_fmt)
    return(ret_err);
   }
 
-#define MAX_TIME_FILENAME_LEN 19
+#define MAX_TIME_FILENAME_LEN 20
 
 // Obtain a date-and-time string and store it in the specified buffer of specified max length
 void get_localtime_filename(char *cur_time_str, size_t cur_time_str_len)
   {
-   get_localtime_str(cur_time_str, cur_time_str_len, "%Y-%m-%d_%H_%M_%S");
+   get_localtime_str(cur_time_str, cur_time_str_len, "%Y-%m-%d_%Hh%Mm%Ss");
   }
 
 #define IMAGE_FILENAME_END "_%02d.jpg"

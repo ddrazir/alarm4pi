@@ -90,13 +90,20 @@ int init_UPNP(char *wan_address)
    return(fn_error);
   }
 
-void terminate_UPNP(void)
+int terminate_UPNP(void)
   {
+   int fn_error;
+
    if(Lan_address[0] != '\0')
      {
       FreeUPNPUrls(&Upnp_urls);
       Lan_address[0] = '\0';
+      fn_error=0;
      }
+   else
+      fn_error=-1;
+
+   return(fn_error);
   }
 
 // add new TCP port mappings from WAN port to local port
@@ -177,7 +184,7 @@ int print_UPNP_mapping(void)
             log_printf(" %s\t%s -> %s\t%s\t%s\t%s\t\"%s\"\t%s\n", map_lan_address, map_wan_port, map_lan_port, map_protocol,
                                          map_lease_duration, map_mapping_enabled, map_remote_host, map_description);
         }
-      fn_error=0;
+      fn_error=get_entry_error;
     }
    else
       fn_error=-1;

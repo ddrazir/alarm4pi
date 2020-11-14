@@ -735,7 +735,7 @@ int daemonize(char *working_dir)
                close(null_fd_rd);
               }
             else
-               perror("iAlarm daemon init error: could not open null device for reading");
+               perror("alarm4pi daemon init error: could not open null device for reading");
             null_fd_wr=open ("/dev/null", O_WRONLY);
             if(null_fd_wr != -1)
               {
@@ -744,13 +744,13 @@ int daemonize(char *working_dir)
                close(null_fd_wr);
               }
             else
-               perror("iAlarm daemon init error: could not open null device for writing");
+               perror("alarm4pi daemon init error: could not open null device for writing");
 
            }
          else
            {
             ret_error=errno;
-            fprintf(stderr,"iAlarm daemon init error: second fork failed. errno=%d\n",errno);
+            fprintf(stderr,"alarm4pi daemon init error: second fork failed. errno=%d\n",errno);
            }
 
 
@@ -758,14 +758,14 @@ int daemonize(char *working_dir)
       else
         {
          ret_error=errno;
-         fprintf(stderr,"iAlarm daemon init error: child process could become session leader. errno=%d\n",errno);
+         fprintf(stderr,"alarm4pi daemon init error: child process could become session leader. errno=%d\n",errno);
         }
 
      }
    else
      {
       ret_error=errno;
-      fprintf(stderr,"iAlarm daemon init error: first fork failed. errno=%d\n",errno);
+      fprintf(stderr,"alarm4pi daemon init error: first fork failed. errno=%d\n",errno);
      }
 
    return(ret_error);

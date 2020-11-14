@@ -13,10 +13,10 @@ echo "<!DOCTYPE html><html><head>
 # To get the alarm4pi directory we can use one of the following lines
 # ls `dirname "${BASH_SOURCE[0]}"`/../captures |
 # ls "$OLDPWD"/../captures |
-ls `dirname "$0"`/../captures |
-while IFS= read -r line
+ls -sh `dirname "$0"`/../captures | tail -n +2 |
+while IFS="" read -r line
 do
-echo "<li><a href=\"capture.cgi?$line\">$line</a></li>"
+echo "<li><a href=\"capture.cgi?${line##* }\">${line##* }</a> (${line%% *})</li>"
 done
 echo "</ul>
 </h3>

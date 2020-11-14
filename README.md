@@ -47,7 +47,7 @@ Pi is disconnected.
 Before running alarm4pi you must prepare and configure some software
 components. The first step is downloading alatm4pi repository. Then:
 
-### Pushover
+### Pushover (optional)
 You must manually configure the notification system so that a message is
 sent to your mobile phone when activity is detected. For that, you must:
 * Buy the Pushover application and install it in your phone so that you
@@ -81,7 +81,7 @@ socketxp login "<your authentication token>"
 If you do not need to use reverse tunneling, you can disable this mechanism
 in alarm4pi.c by commenting the REVERSE_TUNNELING definition.
 
-### Owncloud
+### Owncloud (optional)
 You must have ac account in an Owncloud server in order for the photos to be
 uploaded. Moreover, you must manually configure the Owncloud mechanism for
 alarm4pi to upload the photos. For that, you must:
@@ -93,7 +93,7 @@ Raspberry.
 * Create the file owncloud_conf.txt in the project directory with the
 following content:
 ```
-server_url==https://<your server name>/remote.php/webdav/captures/
+server_url=https://<your server name>/remote.php/webdav/captures/
 user=<your owncloud user>
 password=<your owncloud user password>
 ```

@@ -7,7 +7,7 @@
 #define PIN_LOW_VAL  0
 #define PIN_HIGH_VAL 1
 
-// Defines according to periferal connections
+// Defines according to peripheral connections
 #define PIR_GPIO 17 // pin 11 in pin header
 #define RELAY1_GPIO 8 // pin 24 in pin header
 #define RELAY2_GPIO 9 // pin 21 in pin header

@@ -4,7 +4,7 @@
 
 #define LOG_FILE_NAME "daemon.log" // Debug log file. Debug messages will be written into it (and maybe console as well)
 #define EVENT_FILE_NAME "events.log" // Events log file
-#define MAX_PREV_MSG_FILE_SIZE 50*1024*1024
+#define MAX_PREV_MSG_FILE_SIZE (32*1024)
 
 extern FILE *Log_file_handle, *Event_file_handle;
 

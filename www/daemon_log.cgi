@@ -5,12 +5,13 @@ Connection: close
 Cache-Control: no-store
 "
 echo "<!DOCTYPE html><html><head>
-<title>Processes</title>
-<meta name="viewport" content="width=device-width, initial-scale=1"></head>
+<title>Log</title>
+<meta name="viewport" content="initial-scale=1"></head>
 <body>
-<h3>ps:</h3>
+<h3>alarm4pi daemon log:</h3>
 <pre><xmp>"
-ps -u root --deselect -o 'pid,user,stat,command'
+# cat "$OLDPWD"/../log/daemon.log
+cat `dirname "$0"`/../log/daemon.log
 echo "</xmp></pre>
 </body>
 </html>"
