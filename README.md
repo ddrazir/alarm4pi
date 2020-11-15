@@ -6,21 +6,27 @@ called Raspberry Pi OS).
 
 ## Description
 alarm4pi monitors the state of a presence-detection sensor (PIR sensor) and
-when it is activated, a notification is sent to the user's mobile phone
-through the Internet and a photograph is taken by means of the Raspberry Pi's
-camera and stored in the 'captures' directory of alarm4pi. Besides, this photo
-is inmediatelly uploaded to the Owncloud server specified by the user.
+when it is activated:
+* a notification is sent to the user's mobile phone through the Internet
+* some photographs are taken by means of the Raspberry Pi's camera and stored
+in the 'captures' directory of alarm4pi
+* the photos are then inmediately uploaded to the Owncloud server specified by
+the user.
+* if a lamp is connected to the Raspberry Pi through a relay, and it is night,
+the lamp is switched on during the capture of images.
+
 alarm4pi also implement a web streaming server so the user can remotelly watch
-through the Raspberry Pi camera at any moment and manage the state of the alarm
+through the Raspberry Pi camera at any moment, manage the state of the alarm
 system and activate/deactivate ralays connected to the Raspberry Pi's GPIO pins.
 
 ### Required hardware
 This alarm system is intended to be a do-it-yourself device and requires the
 following hardware to be attached to your Raspberry Pi:
 * PIR sensor which must be connected to the GPIO 17 (pin 11 in pin header)
-* The Raspberry camera connected to the camera port
+* The Raspberry Pi camera connected to the camera port
 * Optionally up to 4 realy switch can be connected to GPIO 8, 9, 10 and 11, for
-example to remotelly switch on/off a light.
+example, to remotelly switch on/off house devices. If a lamp is connected, it
+is assumed to be connected to GPIO 8 through an active-low realy.
 
 ### Required software
 alarm4pi is composed of the following software components:

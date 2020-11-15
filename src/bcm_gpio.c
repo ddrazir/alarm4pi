@@ -242,11 +242,12 @@ int configure_gpios(void)
    int ret_err;
    int curr_gpio;
 
-   // Set GPIO directions
+   // Set GPIO direction as input
    curr_gpio=PIR_GPIO;
    ret_err=GPIO_direction(curr_gpio, PIN_IN_DIR);
    if (0 == ret_err)
      {
+      // Set GPIO directions as output and values
       curr_gpio=RELAY1_GPIO;
       ret_err=GPIO_direction(curr_gpio, PIN_OUT_DIR);
       if (0 == ret_err)

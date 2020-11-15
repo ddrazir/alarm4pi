@@ -3,7 +3,7 @@
 
 #define PIN_IN_DIR  0
 #define PIN_OUT_DIR 1
- 
+
 #define PIN_LOW_VAL  0
 #define PIN_HIGH_VAL 1
 

@@ -4,7 +4,8 @@
 #include <errno.h>
 #include <arpa/inet.h> //INET6_ADDRSTRLEN
 #include <linux/limits.h> // For PATH_MAX
-// For waitpid();
+#include <time.h> // for nanosleep()
+// For waitpid():
 #include <sys/types.h>
 #include <sys/wait.h>
 // For mkdir:
@@ -26,6 +27,10 @@
 // The sensor value will be remembered during (in periods):
 #define PIR_PERMAN_PERS 60
 
+// Switch on the relay 1 (connected to a light switch?) when PIR sensor
+// is activated, that is, GPIO 8 is set to low
+#define RELAY1_ON_ALARM_EVENT
+
 // ID of the thread created by init_polling
 pthread_t Polling_thread_id;
 // General info string which is added to every msg sent
@@ -34,12 +39,27 @@ char Msg_info_str[INET6_ADDRSTRLEN+100];
 // Directory where the images captures by the camera will be stored
 char Full_capture_path[PATH_MAX+1];
 
-/*
-      // Write GPIO value
-      ret_err=GPIO_write(RELAY1_GPIO, repeat % 2);
-      if (0 != ret_err)
-         printf("Error %d: %s\n",ret_err,strerror(ret_err));
-*/
+// Sleeps for the requested number of milliseconds
+int millisleep(unsigned long ms_pause)
+  {
+   struct timespec time_to_wait;
+   int ret_err;
+
+   time_to_wait.tv_sec = ms_pause / 1000;
+   time_to_wait.tv_nsec = (ms_pause % 1000) * 1000000;
+
+   do
+     {
+      ret_err = nanosleep(&time_to_wait, &time_to_wait);
+     }
+   // continue looping if a signal has interrupted nanosleep and at least 1 ms is left
+   while(ret_err == -1 && errno == EINTR && (time_to_wait.tv_sec > 0 || time_to_wait.tv_nsec >= 1000000));
+
+   if(ret_err == -1 && errno == EINTR)
+      ret_err = 0;
+
+   return(ret_err);
+  }
 
 int send_info_notif(char *msg_str, char *msg_priority)
   {
@@ -49,6 +69,30 @@ int send_info_notif(char *msg_str, char *msg_priority)
 
    return(send_notification(tot_msg_str, msg_priority));
   }
+
+int get_current_time(int *hour, int *min, int*sec)
+  {
+   time_t time_since_epoch;
+   struct tm *time_vals;
+   int ret_err;
+
+   time(&time_since_epoch);
+   time_vals = localtime(&time_since_epoch);
+   if(time_vals != NULL)
+     {
+      if(hour != NULL)
+         *hour = time_vals->tm_hour;
+      if(min != NULL)
+         *min = time_vals->tm_min;
+      if(sec != NULL)
+         *sec = time_vals->tm_sec;
+      ret_err = 0; // Success
+     }
+   else
+      ret_err = errno;
+
+   return(ret_err);
+}
 
 // Precondition: Msg_info_str must point to a \0 terminated string
 int update_ip_msg(char *msg_info_fmt)
@@ -128,10 +172,36 @@ void capture_images(void)
 
 void on_alarm_event(void)
   {
+#ifdef RELAY1_ON_ALARM_EVENT
+   int gpio_read_err;
+   int old_gpio_val;
+   int at_night = 1; // only switch on the light at night: default value
+   int cur_hour;
+
+   if(get_current_time(&cur_hour, NULL, NULL) == 0) // Success reading the time
+      if(cur_hour > 8 && cur_hour < 18)
+         at_night = 0;
+   if(at_night)
+     {
+      // Read the current gpio value before modifying it
+      gpio_read_err = GPIO_read(RELAY1_GPIO, &old_gpio_val);
+      if(gpio_read_err == 0) // Success reading
+         if(GPIO_write(RELAY1_GPIO, PIN_LOW_VAL) == 0) // switch on the relay. We assume active low
+            millisleep(100); // write success: wait for the realy and the bulb to switch on
+     }
+   else
+      gpio_read_err = -1; // The GPIO value has not been read
+#endif
+
    event_printf("GPIO PIR (%i) value != 0\n", PIR_GPIO);
    send_info_notif("PIR sensor activated", "2");
    capture_images(); // Take some photos and store them in the 'captures' directory
    upload_captures(); // Synchronize (upload) the contant of 'captures' directory with the owncloud server
+
+#ifdef RELAY1_ON_ALARM_EVENT
+   if(gpio_read_err == 0) // if we succeded reading, restore the old gpio value
+      GPIO_write(RELAY1_GPIO, old_gpio_val);
+#endif
   }
 
 void* polling_thread(volatile int *exit_polling)
@@ -154,7 +224,7 @@ void* polling_thread(volatile int *exit_polling)
       ret_err = GPIO_read(ARMING_GPIO, &alarm_armed);
       if(ret_err == 0) // Success reading
         {
-         if(alarm_armed == 0) // If the alarm is armed (GPIO set to 0):
+         if(alarm_armed == PIN_LOW_VAL) // If the alarm is armed (GPIO set to low):
            {
             // Check if the PIR sensor is activated:
             ret_err = GPIO_read(PIR_GPIO, &curr_pir_value);
@@ -162,14 +232,14 @@ void* polling_thread(volatile int *exit_polling)
               {
                if(curr_pir_value != last_pir_value) // Sensor output changed
                  {
-                  if(curr_pir_value != 0)
+                  if(curr_pir_value != PIN_LOW_VAL) // PIR sensor is assumed to be active high
                     {
                      on_alarm_event();
                     }
                   last_pir_value = curr_pir_value;
                  }
 
-               if(curr_pir_value != 0) // Sensor output activated, remember its value
+               if(curr_pir_value != PIN_LOW_VAL) // Sensor output activated, remember its value for a time
                   pir_perman_counter = PIR_PERMAN_PERS;
               }
             else
