@@ -11,6 +11,7 @@
 #include <string.h>
 #include "bcm_gpio.h"
 #include "log_msgs.h"
+#include "proc_helper.h" // for millisleep()
 
 int GPIO_export(int pin)
   {
@@ -36,7 +37,7 @@ int GPIO_export(int pin)
       n_wait_cycle=0;
       do
         {
-         usleep(50000); // pause 50ms to allow the OS create the /sys/class/gpio/gpio... FS structure
+         millisleep(50); // pause 50ms to allow the OS create the /sys/class/gpio/gpio... FS structure
 
          fd = open(path, O_WRONLY);
          if(-1 != fd)

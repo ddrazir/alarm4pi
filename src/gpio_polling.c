@@ -22,8 +22,8 @@
 #define PUSHOVER_CONFIG_FILENAME "pushover_conf.txt"
 #define OWNCLOUD_CONFIG_FILENAME "owncloud_conf.txt"
 
-// The sensor value will be checked each (in seconds):
-#define PIR_POLLING_PERIOD_SECS 1
+// The sensor value will be checked each (in milliseconds):
+#define PIR_POLLING_PERIOD_SECS 1000
 // The sensor value will be remembered during (in periods):
 #define PIR_PERMAN_PERS 60
 
@@ -38,28 +38,6 @@ char Msg_info_str[INET6_ADDRSTRLEN+100];
 
 // Directory where the images captures by the camera will be stored
 char Full_capture_path[PATH_MAX+1];
-
-// Sleeps for the requested number of milliseconds
-int millisleep(unsigned long ms_pause)
-  {
-   struct timespec time_to_wait;
-   int ret_err;
-
-   time_to_wait.tv_sec = ms_pause / 1000;
-   time_to_wait.tv_nsec = (ms_pause % 1000) * 1000000;
-
-   do
-     {
-      ret_err = nanosleep(&time_to_wait, &time_to_wait);
-     }
-   // continue looping if a signal has interrupted nanosleep and at least 1 ms is left
-   while(ret_err == -1 && errno == EINTR && (time_to_wait.tv_sec > 0 || time_to_wait.tv_nsec >= 1000000));
-
-   if(ret_err == -1 && errno == EINTR)
-      ret_err = 0;
-
-   return(ret_err);
-  }
 
 int send_info_notif(char *msg_str, char *msg_priority)
   {
@@ -152,7 +130,7 @@ void capture_images(void)
       strcpy(full_image_file_path, Full_capture_path);
       strcat(full_image_file_path, image_filename);
 
-      capture_run_ret = run_background_command(&capture_proc_id, capture_exec_args[0], capture_exec_args);
+      capture_run_ret = run_background_command_out_log(&capture_proc_id, capture_exec_args[0], capture_exec_args);
       if(capture_run_ret == 0)
         {
          int wait_ret;
@@ -204,7 +182,7 @@ void on_alarm_event(void)
 #endif
   }
 
-void* polling_thread(volatile int *exit_polling)
+void *polling_thread(volatile int *exit_polling)
   {
    int ret_err;
    int read_err;
@@ -260,7 +238,7 @@ void* polling_thread(volatile int *exit_polling)
             read_err=ret_err;
            }
         }
-      sleep(PIR_POLLING_PERIOD_SECS);
+      millisleep(PIR_POLLING_PERIOD_SECS);
       if(pir_perman_counter > 0)
          pir_perman_counter--;
      }

@@ -24,6 +24,26 @@
 #define PROC_OUTPUT_READ_TIMEOUT 12 // Maximum num. of seconds to wait for a program to print its output text
 #define MIN_VALID_PROC_OUTPUT 30 // Minimum number of characters that the executed process is expected to print
 
+int millisleep(unsigned long ms_pause)
+  {
+   struct timespec time_to_wait;
+   int ret_err;
+
+   time_to_wait.tv_sec = ms_pause / 1000;
+   time_to_wait.tv_nsec = (ms_pause % 1000) * 1000000;
+
+   do
+     {
+      ret_err = nanosleep(&time_to_wait, &time_to_wait);
+     }
+   // continue looping if a signal has interrupted nanosleep and at least 1 ms is left
+   while(ret_err == -1 && errno == EINTR && (time_to_wait.tv_sec > 0 || time_to_wait.tv_nsec >= 1000000));
+
+   if(ret_err == -1 && errno == EINTR)
+      ret_err = 0;
+
+   return(ret_err);
+  }
 
 // Get the time elapsed since a specified moment using a monotonic clock.
 // If since_time is NULL, just the time is measured from a particular
@@ -260,46 +280,179 @@ void kill_processes(pid_t *process_ids, size_t n_processes)
          kill(process_ids[n_child], SIGTERM);
   }
 
-int wait_processes(pid_t *process_ids, size_t n_processes, int wait_timeout)
+int update_child_processes_state(pid_t *process_ids, size_t n_processes)
   {
-   int ret_error;
-   int n_remaining_procs;
+   int proc_status; // status of child process
+   int wait_ret;
+
+   // -1=check for any child process. WNOHANG=return immediately even if no child has exited
+   // Loop while a new child process is reported to have changed its state
+   while((wait_ret = waitpid(-1, &proc_status, WNOHANG)) > 0)
+     {
+      // Valid process ID returned: a child changed its state
+      if(WIFEXITED(proc_status) || WIFSIGNALED(proc_status)) // Did this process exit?
+        {
+         int n_child;
+         // We check if the process that exited was a process executed by alarm4pi
+         for(n_child=0;n_child<n_processes;n_child++)
+            // Is this process of the list the one that has just exited?
+            if(process_ids[n_child] == wait_ret)
+              {
+               if(WIFEXITED(proc_status)) // The child porcess exited normally
+                  log_printf("The executed child process num. %i with PID=%i has exited normally returning a status code=%i.\n", n_child, wait_ret, WEXITSTATUS(proc_status));
+               else // They child process was terminated by a signal
+                  log_printf("The executed child process num. %i with PID=%i was terminated by the signal %i.\n", n_child, wait_ret, WTERMSIG(proc_status));
+               process_ids[n_child] = -1; // Mark process as dead
+               break;
+              }
+         if(n_child == n_processes) // Process not found in the child list
+            log_printf("The child process with PID=%i is not in the executed child list.\n", wait_ret);
+        }
+     }
+   if(wait_ret == -1)
+     {
+      if(errno == ECHILD) // There is no child processes: this is not an error
+         wait_ret=0;
+      else
+         wait_ret=errno;
+     }
+   return(wait_ret);
+  }
+
+// This fn seach the list of PIDs process_ids for child processes that have
+// exited (PID=1) and run them again.
+// The length of process_ids is n_processes.
+// processes_exec_args is an array of pointers to the argv list of arguments for
+// each process of the n_processes.
+// This fn returns the number of processes that it has tried to create (execute),
+// or -1 on error, in this case errno is set.
+int exec_exited_child_processes(pid_t *process_ids, char * const * const processes_exec_args[], size_t n_processes)
+  {
+   int proc_ind;
+   int n_run_procs; // number of processes than this fn has tried to run
+
+   n_run_procs=0; // deafult return value=0
+   for(proc_ind=0;proc_ind<n_processes &&  n_run_procs>=0;proc_ind++)
+      if(process_ids[proc_ind] == -1)
+        {
+         int run_cmd_ret;
+         char **exec_abs_args;
+
+         exec_abs_args = replace_relative_path_array(processes_exec_args[proc_ind]);
+         run_cmd_ret = run_background_command_out_log(process_ids+proc_ind, exec_abs_args[0], exec_abs_args);
+         free_substring_array(exec_abs_args);
+
+         if(run_cmd_ret == 0)
+            log_printf("Created again child process %s with PID=%i\n", processes_exec_args[proc_ind][0], process_ids[proc_ind]);
+         else
+           {
+            n_run_procs=-1; // Error: exit loop
+            log_printf("Error executing again the child process %s. errno %i: %s\n", processes_exec_args[proc_ind][0], errno, strerror(errno));
+           }
+         n_run_procs++;
+        }
+
+   return(n_run_procs);
+  }
+
+int count_running_child_processes(pid_t *process_ids, size_t n_processes)
+  {
+   // Count the number of children that has not exited
+   int proc_ind, n_remaining_procs;
+
+   n_remaining_procs = 0;
+   for(proc_ind=0;proc_ind<n_processes;proc_ind++)
+      if(process_ids[proc_ind] != -1)
+         n_remaining_procs++;
+
+   return(n_remaining_procs);
+  }
+
+int wait_child_processes(pid_t *process_ids, char * const * const processes_exec_args[], size_t n_processes, volatile int *exit_flag, time_t exec_retry_per, int exec_retries_left)
+  {
+   int ret_error, fn_ret;
+   sigset_t sigchld_signal_set, old_blocked_signals; // POSIX signal sets:
+   const struct timespec signal_timeout = { exec_retry_per, 0 };
+
+   fn_ret = sigemptyset(&sigchld_signal_set);
+   if(fn_ret == 0)
+      fn_ret = sigaddset (&sigchld_signal_set, SIGCHLD); // Set the SIGCHLD signal in the set
+   if(fn_ret == -1)
+     {
+      ret_error=errno; // get waitpid() error code and exit
+      log_printf("Error assigning the child-process-exit singal to the set of signals. errno %i: %s\n", ret_error, strerror(ret_error));
+      return(ret_error);
+     }
+   // Specify that the SIGCHLD signal delivery must be blocked for the calling thread so that
+   // it is detected by sigtimedwait(), and fetch the previous blocked-signal mask.
+   // SIGCHLD is delivered when a child process exits, is interrupted, or resumes after being interrupted.
+   fn_ret = sigprocmask(SIG_BLOCK, &sigchld_signal_set, &old_blocked_signals);
+   if(fn_ret == -1)
+     {
+      ret_error=errno; // get sigprocmask error code and exit
+      log_printf("Error setting the current thread to block the delivery of child-process-exit signal. errno %i: %s\n", ret_error, strerror(ret_error));
+      return(ret_error);
+     }
+
+   // Check if any child process exited before blocking the SIGCHLD signal delivery because
+   // these will not be detected later by sigtimedwait()
+   fn_ret = update_child_processes_state(process_ids, n_processes);
+   if(fn_ret != 0)
+      log_printf("Error finding out the child processes that have exited immediately. returned error %i: %s\n", fn_ret, strerror(fn_ret));
 
    ret_error=0;
-   do
+
+   // Loop while:
+   //  - no error has been reported and
+   //    - any child process is still running or
+   //    - exit flag not signaled and there are execution retries left
+   while(ret_error==0 && (count_running_child_processes(process_ids, n_processes)>0 || (!*exit_flag && (exec_retries_left>0 || exec_retries_left==-1))))
      {
       int wait_ret;
 
-      n_remaining_procs=0;
-      alarm(wait_timeout);
-      wait_ret=waitpid(0, NULL, 0); // wait for any child process whose process group ID is equal to that of the calling process.
-      if(wait_ret != -1) // Valid PID returned
+      // wait for any child process to change its running state (SIGCHLD) or timeout
+      wait_ret = sigtimedwait(&sigchld_signal_set, NULL, &signal_timeout);
+      //log_printf("SIGTIMEDWAIT ret: %i errno: %i: %s\n", wait_ret, errno, strerror(errno));
+      if(wait_ret == SIGCHLD)
         {
-         int n_child;
-
-         for(n_child=0;n_child<n_processes;n_child++)
-            if(process_ids[n_child] != -1) // A process is remaining in the list
-              {
-               if(process_ids[n_child] == wait_ret) // Is the process that has just died?
-                 {
-                  log_printf("Child process with PID: %i terminated.\n", wait_ret);
-                  process_ids[n_child] = -1; // Mark process as dead
-                 }
-               else
-                  n_remaining_procs++; // We still have to wait for his process
-              }
+         fn_ret = update_child_processes_state(process_ids, n_processes);
+         if(fn_ret != 0)
+            log_printf("Error finding out the child processes that have exited. returned error %i: %s\n", fn_ret, strerror(fn_ret));
         }
       else
-        {
-         ret_error=errno; // Error: exit loop
-         log_printf("Error waiting for child process to finish. errno %i: %s\n", errno, strerror(errno));
-        }
+         if(wait_ret == -1) // sigtimedwait() indicated an error
+           {
+            if(errno == EAGAIN) // timeout waiting
+              {
+               if(!*exit_flag && (exec_retries_left > 0 || exec_retries_left == -1))
+                 {
+                  fn_ret = exec_exited_child_processes(process_ids, processes_exec_args, n_processes);
+                  if(fn_ret > 0 && exec_retries_left > 0) // Some child process has been tried to be created
+                     exec_retries_left--;
+                 }
+              }
+            else
+              {
+               if(errno != EINTR) // we do not consider ENTR an error
+                 {
+                  ret_error=errno;
+                  log_printf("Error waiting for child processes to exit. returned error %i: %s\n", ret_error, strerror(ret_error));
+                 }
+              }
+           }
      }
-   while(n_remaining_procs > 0);
+
+   fn_ret = sigprocmask(SIG_SETMASK, &old_blocked_signals, NULL);
+   if(fn_ret == -1)
+     {
+      ret_error=errno; // get sigprocmask error code
+      log_printf("Error restoring the signals whose delivery will be blocked by the current thread. errno %i: %s\n", ret_error, strerror(ret_error));
+     }
+
    return(ret_error);
   }
 
-int run_background_command(pid_t *new_proc_id, const char *exec_filename, char *const exec_argv[])
+int run_background_command_out_log(pid_t *new_proc_id, const char *exec_filename, char *const exec_argv[])
   {
    int ret;
 
@@ -659,44 +812,6 @@ int run_background_command_in_array(pid_t *new_proc_id, char *input_array, const
    return(ret);
   }
 
-int configure_timer(float interval_sec)
-  {
-   int ret_error;
-   struct itimerval timer_conf;
-
-   if(interval_sec < 0) // Disable the timer
-     {
-      // Set the timer to zero: A timer whose it_value is zero or the timer expires
-      // and it_interval is zero stops
-      timer_conf.it_value.tv_sec = 0;
-      timer_conf.it_value.tv_usec = 0;
-      timer_conf.it_interval.tv_sec = 0;
-      timer_conf.it_interval.tv_usec = 0;
-     }
-   else
-     {
-      // Configure the timer to expire (ring) after 250 ms the first time
-      timer_conf.it_value.tv_sec = 0;
-      timer_conf.it_value.tv_usec = 250000;
-      // and to expire again every interval_sec seconds
-      timer_conf.it_interval.tv_sec = (time_t)interval_sec;
-      timer_conf.it_interval.tv_usec = (suseconds_t)((interval_sec-timer_conf.it_interval.tv_sec)*1.0e6);
-     }
-
-   // Start a real time timer, which deliver a SIGALARM
-   if(setitimer (ITIMER_REAL, &timer_conf, NULL) == 0)
-     {
-      log_printf("Sensor polling (timer) set to %lis and %lius\n", timer_conf.it_interval.tv_sec, timer_conf.it_interval.tv_usec);
-      ret_error=0; // Timer set successfully
-     }
-   else
-     {
-      ret_error=errno;
-      log_printf("Error setting timer: errno %i: %s\n", errno, strerror(errno));
-     }
-   return(ret_error);
-  }
-
 // This fn is not used since daemon() is preferred
 int daemonize(char *working_dir)
   {
@@ -745,22 +860,18 @@ int daemonize(char *working_dir)
               }
             else
                perror("alarm4pi daemon init error: could not open null device for writing");
-
            }
          else
            {
             ret_error=errno;
             fprintf(stderr,"alarm4pi daemon init error: second fork failed. errno=%d\n",errno);
            }
-
-
         }
       else
         {
          ret_error=errno;
          fprintf(stderr,"alarm4pi daemon init error: child process could become session leader. errno=%d\n",errno);
         }
-
      }
    else
      {

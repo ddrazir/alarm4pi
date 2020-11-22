@@ -40,15 +40,15 @@
 // (must finish with '/')
 #define CAPTURE_IMAGE_PATH "./captures/"
 
-//#define SENSOR_POLLING_PERIOD_SEC 1
-// configure_timer(SENSOR_POLLING_PERIOD_SEC); // Activate timer
-
 // List of child processes:
 pid_t Child_process_ids[2] = {-1, -1}; // Initialize to -1 in order not to send signals if no child process was created
+#define NUM_CHILD_PROCESSES (sizeof(Child_process_ids)/sizeof(pid_t))
 
-char * const Web_server_exec_args[]={WEB_SERVER_BIN_PATH"mjpg_streamer", "-i", WEB_SERVER_BIN_PATH"input_raspicam.so", "-o", WEB_SERVER_BIN_PATH"output_http.so -w ./www -p "WEB_SERVER_PORT, NULL}; // WEB_SERVER_PORT is defined in port_mapping.h
-//char * const Web_server_exec_args[]={WEB_SERVER_BIN_PATH"mjpg_streamer", "-i", WEB_SERVER_BIN_PATH"input_file.so -f /tmp -n Pochampally.jpg", "-o", WEB_SERVER_BIN_PATH"output_http.so -w ./www -p "WEB_SERVER_PORT, NULL}; // WEB_SERVER_PORT is defined in port_mapping.h
-char * const Tunneling_exec_args[]={"socketxp", "connect", "http://localhost:"WEB_SERVER_PORT, NULL};
+// Time to wait before trying to execute a child process again after it has terminated (in seconds)
+#define CHILD_PROC_EXEC_RETRY_PER 5
+// Number of times that the child processes will be tried to be run if they exit (in total)
+// -1 means infinity
+#define MAX_CHILD_PROC_EXEC_RETRIES -1
 
 // When Break is pressed (or SIGTERM recevied) this var is set to 1 by the signal handler fn to exit loops
 volatile int Exit_daemon_loop=0; // We may use sig_atomic_t in the declaration instead of int, but this is not needed
@@ -61,29 +61,17 @@ volatile int Exit_daemon_loop=0; // We may use sig_atomic_t in the declaration i
 static void exit_deamon_handler(int sig)
   {
    log_printf("Signal %i received: Sending TERM signal to children.\n", sig);
-   kill_processes(Child_process_ids, sizeof(Child_process_ids)/sizeof(pid_t));
+   kill_processes(Child_process_ids, NUM_CHILD_PROCESSES);
    Exit_daemon_loop = 1;
   }
 
-// This callback function is the handler of the SIGALRM signal
-// Function set_signal_handler() should be called to set this function as the handler of
-// these signals
-static void timer_handler(int signum)
-  {
-   static int count = 0;
-   log_printf ("timer expired %d times\n", ++count);
-  }
-
-// Sets the signal handler functions of SIGALRM, SIGINT and SIGTERM
+// Sets the signal handler functions of SIGINT and SIGTERM
 int set_signal_handler(void)
   {
    int ret;
    struct sigaction act;
 
    memset (&act, '\0', sizeof(act));
-
-   act.sa_handler = timer_handler;
-   sigaction(SIGALRM, &act, NULL);
 
    act.sa_handler = exit_deamon_handler;
    // If the signal handler is invoked while a system call or library function call is blocked,
@@ -104,6 +92,11 @@ int set_signal_handler(void)
 
 int main(int argc, char *argv[])
   {
+   char * const web_server_exec_args[]={WEB_SERVER_BIN_PATH"mjpg_streamer", "-i", WEB_SERVER_BIN_PATH"input_raspicam.so", "-o", WEB_SERVER_BIN_PATH"output_http.so -w ./www -p "WEB_SERVER_PORT, NULL}; // WEB_SERVER_PORT is defined in port_mapping.h
+   //char * const web_server_exec_args[]={WEB_SERVER_BIN_PATH"mjpg_streamer", "-i", WEB_SERVER_BIN_PATH"input_file.so -f /tmp -n Pochampally.jpg", "-o", WEB_SERVER_BIN_PATH"output_http.so -w ./www -p "WEB_SERVER_PORT, NULL};
+   char * const tunneling_exec_args[]={"socketxp", "connect", "http://localhost:"WEB_SERVER_PORT, NULL};
+   char * const * const processes_exec_args[]={web_server_exec_args, tunneling_exec_args};
+
    int main_err;
 
    // main_err=daemonize("/"); // This is a custom fn, but it causes problems when waiting for child processes
@@ -138,14 +131,14 @@ int main(int argc, char *argv[])
       if(setenv(WSERVER_ENV_VAR_NAME, WSERVER_ENV_VAR_VAL, 0) != 0)
          log_printf("Error setting envoronment variable for child process. Errno=%i\n", errno);
 
-      exec_abs_args = replace_relative_path_array(Web_server_exec_args);
-      run_prog_ret = run_background_command(&child_proc_id, exec_abs_args[0], exec_abs_args);
+      exec_abs_args = replace_relative_path_array(web_server_exec_args);
+      run_prog_ret = run_background_command_out_log(&child_proc_id, exec_abs_args[0], exec_abs_args);
       free_substring_array(exec_abs_args);
 
       if(run_prog_ret == 0)
         {
          Child_process_ids[num_child_processes++]=child_proc_id;
-         log_printf("Created child process for web server %s\n", Web_server_exec_args[0]);
+         log_printf("Created child process %s for web server with PID %i.\n", web_server_exec_args[0], child_proc_id);
 #ifdef REVERSE_TUNNELING
            {
             size_t cur_info_msg_fmt_len;
@@ -154,11 +147,14 @@ int main(int argc, char *argv[])
             snprintf(info_msg_fmt+cur_info_msg_fmt_len, sizeof(info_msg_fmt)-cur_info_msg_fmt_len, " Tunneling: ");
             cur_info_msg_fmt_len=strlen(info_msg_fmt);
             // Execute the tunneling program and add its text output to the notification message string
-            run_prog_ret = run_background_command_out_array(&child_proc_id, info_msg_fmt+cur_info_msg_fmt_len, sizeof(info_msg_fmt)-cur_info_msg_fmt_len, Tunneling_exec_args[0], Tunneling_exec_args);
+
+            exec_abs_args = replace_relative_path_array(tunneling_exec_args);
+            run_prog_ret = run_background_command_out_array(&child_proc_id, info_msg_fmt+cur_info_msg_fmt_len, sizeof(info_msg_fmt)-cur_info_msg_fmt_len, exec_abs_args[0], exec_abs_args);
+            free_substring_array(exec_abs_args);
             if(run_prog_ret == 0)
               {
                Child_process_ids[num_child_processes++]=child_proc_id;
-               log_printf("Created child process for reverse-tunneling %s\n", Tunneling_exec_args[0]);
+               log_printf("Created child process %s for reverse-tunneling with PID=%i.\n", tunneling_exec_args[0], child_proc_id);
                log_printf("Tunneling process output: %s\n", info_msg_fmt + cur_info_msg_fmt_len);
               }
            }
@@ -178,12 +174,8 @@ int main(int argc, char *argv[])
 
       log_printf("Waiting for child processes to finish\n");
 
-      configure_timer(-1); // Stop timer
-
-      // Wait until created process terminate or time out
-      // The system timer (used for polling) is stopped by this function
-      // 5
-      wait_processes(Child_process_ids, sizeof(Child_process_ids)/sizeof(pid_t), 0);
+      // Wait until all the created processes exit and no more execution retries are pending
+      wait_child_processes(Child_process_ids, processes_exec_args, num_child_processes, &Exit_daemon_loop, CHILD_PROC_EXEC_RETRY_PER, MAX_CHILD_PROC_EXEC_RETRIES);
 
       delete_UPNP_mapping();
       //print_UPNP_mapping();

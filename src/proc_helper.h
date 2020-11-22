@@ -2,7 +2,14 @@
 #define PROC_HELPER_H
 
 #include <stdlib.h>
+#include <time.h>
+
 // Header of functions for managing processes and related operations.
+
+// Sleeps for the requested number of milliseconds.
+// It returns 0 on success. In case of error -1 is returned and errno is set
+// accordingly.
+int millisleep(unsigned long ms_pause);
 
 // Get the full path of the directory where the main executable is found.
 int get_current_exec_path(char *exec_path, size_t path_buff_len);
@@ -66,18 +73,20 @@ void free_substring_array(char **src_str_array);
 // be freed by calling free_substring_array() after being used.
 char **replace_relative_path_array(char * const argv[]);
 
-// This function blocks until a list of processes terminate or timeout.
+// This function blocks until all the processes of the list process_ids terminate.
 // process_ids is a pointer to the PID list of length n_processes.
-// Returns 0 on success (all child processes have finished) or an errno
-// code if on error or timeout.
-// Warning: This function stops the system timer.
-int wait_processes(pid_t *process_ids, size_t n_processes, int wait_timeout);
+// if exit_flag does not becore true, the processes that exit are run again
+// after exec_retry_per seconds. A maximum of exec_retries_left process
+// execution retries are allowed in total. exec_retries_left=-1 means infinite retries.
+// Returns 0 on success (exit condition met with no errors) or an errno
+// code if an error occurred.
+int wait_child_processes(pid_t *process_ids, char * const * const processes_exec_args[], size_t n_processes, volatile int *exit_flag, time_t exec_retry_per, int exec_retries_left);
 
 // Sends the SIGTERM signal to a list processes
 // The list of PIDs is pointed by process_ids and its length in n_processes
 void kill_processes(pid_t *process_ids, size_t n_processes);
 
-// Executes a program in a child process.
+// Executes a program in a child process and send its output to the log.
 // The PID of the created process is returned after successful execution.
 // new_proc_id must point to a var where the new PID will be stored.
 // exec_filename must point to a \0 terminated string containing the program filename.
@@ -87,7 +96,7 @@ void kill_processes(pid_t *process_ids, size_t n_processes);
 // función recibir un argumento "char **". El compilador impide esto porque la función
 // podría hacer a *exec_arg apuntar a una constante y luego, fuera de la función, el argumento
 // pasado "char **" podría modificar esta constante, lo cual no está permitido.
-int run_background_command(pid_t *new_proc_id, const char *exec_filename, char *const exec_argv[]);
+int run_background_command_out_log(pid_t *new_proc_id, const char *exec_filename, char *const exec_argv[]);
 
 // Executes a program in a child process and obtains its stdout in an array.
 // output_array must point to a char array where the std output of the program
@@ -109,13 +118,7 @@ int run_background_command_out_array(pid_t *new_proc_id, char *output_array, siz
 // Returns 0 on success or an errno code.
 int run_background_command_in_array(pid_t *new_proc_id, char *input_array, const char *exec_filename, char *const exec_argv[]);
 
-// Configure the system real-time timer to send a SIGALRM signal to the current process.
-// SIGALRM must be handled before calling this function.
-// this signal will be send each interval_sec seconds.
-// If interval_sec is negative, the timer is stopped.
-// The function returns 0 on success, or a errno error code on error.
-int configure_timer(float interval_sec);
-
+// fn equivalent to the system fn daemon()
 int daemonize(char *working_dir);
 
 #endif // PROC_HELPER

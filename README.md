@@ -17,7 +17,7 @@ the lamp is switched on during the capture of images.
 
 alarm4pi also implement a web streaming server so the user can remotelly watch
 through the Raspberry Pi camera at any moment, manage the state of the alarm
-system and activate/deactivate ralays connected to the Raspberry Pi's GPIO pins.
+system and activate/deactivate relays connected to the Raspberry Pi's GPIO pins.
 
 ### Required hardware
 This alarm system is intended to be a do-it-yourself device and requires the
