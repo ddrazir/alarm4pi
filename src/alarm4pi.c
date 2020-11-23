@@ -48,7 +48,7 @@ pid_t Child_process_ids[2] = {-1, -1}; // Initialize to -1 in order not to send 
 #define CHILD_PROC_EXEC_RETRY_PER 5
 // Number of times that the child processes will be tried to be run if they exit (in total)
 // -1 means infinity
-#define MAX_CHILD_PROC_EXEC_RETRIES -1
+#define MAX_CHILD_PROC_EXEC_RETRIES 3
 
 // When Break is pressed (or SIGTERM recevied) this var is set to 1 by the signal handler fn to exit loops
 volatile int Exit_daemon_loop=0; // We may use sig_atomic_t in the declaration instead of int, but this is not needed
@@ -95,6 +95,7 @@ int main(int argc, char *argv[])
    char * const web_server_exec_args[]={WEB_SERVER_BIN_PATH"mjpg_streamer", "-i", WEB_SERVER_BIN_PATH"input_raspicam.so", "-o", WEB_SERVER_BIN_PATH"output_http.so -w ./www -p "WEB_SERVER_PORT, NULL}; // WEB_SERVER_PORT is defined in port_mapping.h
    //char * const web_server_exec_args[]={WEB_SERVER_BIN_PATH"mjpg_streamer", "-i", WEB_SERVER_BIN_PATH"input_file.so -f /tmp -n Pochampally.jpg", "-o", WEB_SERVER_BIN_PATH"output_http.so -w ./www -p "WEB_SERVER_PORT, NULL};
    char * const tunneling_exec_args[]={"socketxp", "connect", "http://localhost:"WEB_SERVER_PORT, NULL};
+   //char * const tunneling_exec_args[]={"nc", "-v", "-l", "-p 8080", NULL};
    char * const * const processes_exec_args[]={web_server_exec_args, tunneling_exec_args};
 
    int main_err;

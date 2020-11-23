@@ -75,6 +75,9 @@ int msg_printf(FILE *out_file_handle, const char *format, ...)
          fprintf(out_file_handle, "[%s] ",cur_time_str);
          fprintf_ret=vfprintf(out_file_handle, format, arglist);
          va_end(arglist);
+         // The file stream is configured as full buffering (_IOFBF), so the
+         // log messages must be flushed if they must be consulted immediately
+         //fflush(out_file_handle);
         }
       ret=(printf_ret!=0)?printf_ret:fprintf_ret;
      }
