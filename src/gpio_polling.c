@@ -105,7 +105,8 @@ void get_localtime_filename(char *cur_time_str, size_t cur_time_str_len)
    get_localtime_str(cur_time_str, cur_time_str_len, "%Y-%m-%d_%Hh%Mm%Ss");
   }
 
-#define IMAGE_FILENAME_END "_%02d.jpg"
+//#define IMAGE_FILENAME_END "_%02d.jpg"
+#define IMAGE_FILENAME_END ".h264"
 
 void capture_images(void)
   {
@@ -117,7 +118,12 @@ void capture_images(void)
    // -tl 1000: 1000 ms time between shots. %d must be specified in the filename for the counter
    // -t 2000: 2000 ms time before the camera (takes picture and) shuts down. 2000/1000=2 images will be take
    // -th none: no thumbnail will be inserted into the JPEG file
-   char * const capture_exec_args[]={"raspistill", "-n", "-w", "640", "-h", "480", "-q", "10", "-o", full_image_file_path, "-bm", "-tl", "1000", "-t", "2000", "-th", "none", NULL};
+//   char * const capture_exec_args[]={"raspistill", "-n", "-w", "640", "-h", "480", "-q", "10", "-o", full_image_file_path, "-bm", "-tl", "1000", "-t", "2000", "-th", "none", NULL};
+   // raspivid parameters used_
+   // -n: no preview
+   // -t 2000: record a 2s clip
+   // -f 5: framerate 5fps
+   char * const capture_exec_args[]={"raspivid", "-n", "-t", "2000", "-f", "5", "-o", full_image_file_path, NULL};
 //   char * const capture_exec_args[]={"touch", full_image_file_path, NULL};
    pid_t capture_proc_id;
    int capture_run_ret;
