@@ -8,10 +8,10 @@ echo "<!DOCTYPE html><html><head>
 <title>Log</title>
 <meta name="viewport" content="initial-scale=1"></head>
 <body>
-<h3>alarm4pi daemon log:</h3>
+<h3>alarm4pi tunneling log:</h3>
 <pre><xmp>"
-# cat "$OLDPWD"/../log/daemon.log
-cat "$(dirname -- "$0")"/../log/daemon.log
+#cat `eval echo "~$USER"`/.socketxp/socketxp.log
+cat "$HOME"/.socketxp/socketxp.log
 echo "</xmp></pre>
 </body>
 </html>"

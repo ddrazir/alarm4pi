@@ -42,7 +42,7 @@
 
 // List of child processes:
 pid_t Child_process_ids[2] = {-1, -1}; // Initialize to -1 in order not to send signals if no child process was created
-#define NUM_CHILD_PROCESSES (sizeof(Child_process_ids)/sizeof(pid_t))
+#define MAX_NUM_CHILD_PROCESSES (sizeof(Child_process_ids)/sizeof(pid_t))
 
 // Time to wait before trying to execute a child process again after it has terminated (in seconds)
 #define CHILD_PROC_EXEC_RETRY_PER 5
@@ -61,7 +61,7 @@ volatile int Exit_daemon_loop=0; // We may use sig_atomic_t in the declaration i
 static void exit_deamon_handler(int sig)
   {
    log_printf("Signal %i received: Sending TERM signal to children.\n", sig);
-   kill_processes(Child_process_ids, NUM_CHILD_PROCESSES);
+   kill_processes(Child_process_ids, MAX_NUM_CHILD_PROCESSES);
    Exit_daemon_loop = 1;
   }
 
@@ -94,8 +94,8 @@ int main(int argc, char *argv[])
   {
    char * const web_server_exec_args[]={WEB_SERVER_BIN_PATH"mjpg_streamer", "-i", WEB_SERVER_BIN_PATH"input_raspicam.so", "-o", WEB_SERVER_BIN_PATH"output_http.so -w ./www -p "WEB_SERVER_PORT, NULL}; // WEB_SERVER_PORT is defined in port_mapping.h
    //char * const web_server_exec_args[]={WEB_SERVER_BIN_PATH"mjpg_streamer", "-i", WEB_SERVER_BIN_PATH"input_file.so -f /tmp -n Pochampally.jpg", "-o", WEB_SERVER_BIN_PATH"output_http.so -w ./www -p "WEB_SERVER_PORT, NULL};
-   char * const tunneling_exec_args[]={"socketxp", "connect", "http://localhost:"WEB_SERVER_PORT, NULL};
-   //char * const tunneling_exec_args[]={"nc", "-v", "-l", "-p 8080", NULL};
+   char * const tunneling_exec_args[]={"socketxp", "--no-auto-update", "connect", "http://localhost:"WEB_SERVER_PORT, NULL};
+   //char * const tunneling_exec_args[]={"journalctl", "-n", "3", "-o", "cat", "-u", "ssh.service", NULL};
    char * const * const processes_exec_args[]={web_server_exec_args, tunneling_exec_args};
 
    int main_err;
@@ -105,7 +105,7 @@ int main(int argc, char *argv[])
    if(main_err == 0)
      {
       pid_t child_proc_id;
-      char info_msg_fmt[160]; // Message string that will be sent to the user as a initial notification
+      char info_msg_fmt[512]; // Message string that will be sent to the user as a initial notification
       size_t num_child_processes = 0; // Number of child processes currently created by alarm4pi
       char **exec_abs_args;
       int run_prog_ret;
@@ -154,7 +154,7 @@ int main(int argc, char *argv[])
             free_substring_array(exec_abs_args);
             if(run_prog_ret == 0)
               {
-               Child_process_ids[num_child_processes++]=child_proc_id;
+///               Child_process_ids[num_child_processes++]=child_proc_id; // Adds the process to the list of precesses that must be waited (and restarted) in the main loop
                log_printf("Created child process %s for reverse-tunneling with PID=%i.\n", tunneling_exec_args[0], child_proc_id);
                log_printf("Tunneling process output: %s\n", info_msg_fmt + cur_info_msg_fmt_len);
               }

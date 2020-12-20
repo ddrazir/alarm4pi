@@ -306,7 +306,7 @@ int update_child_processes_state(pid_t *process_ids, size_t n_processes)
                break;
               }
          if(n_child == n_processes) // Process not found in the child list
-            log_printf("The child process with PID=%i is not in the executed child list.\n", wait_ret);
+            log_printf("The terminated child process with PID=%i is not in the executed child list.\n", wait_ret);
         }
      }
    if(wait_ret == -1)
@@ -632,7 +632,11 @@ int run_background_command_out_array(pid_t *new_proc_id, char *output_array, siz
             int bytes_read;
             bytes_read = read(output_fd, output_array + num_output_chars, output_array_len - num_output_chars - 1);
             if(bytes_read >= 0) // read() succeeded
+              {
+               if(bytes_read == 0) // end of file indicated: the other end of the pipe has been closed
+                  break; // exit loop
                num_output_chars += bytes_read;
+              }
             else
                num_fds_ready = -1; // read() failed: indicate an error to exit
            }

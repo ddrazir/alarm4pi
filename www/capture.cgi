@@ -21,5 +21,5 @@ Connection: close
 Cache-Control: no-store
 "
 # cat "$OLDPWD"/../captures/"$QUERY_STRING"
-cat `dirname "$0"`/../captures/"$QUERY_STRING"
+cat "$(dirname -- "$0")"/../captures/"$QUERY_STRING"
 fi

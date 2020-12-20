@@ -12,7 +12,7 @@ echo "<!DOCTYPE html><html><head>
 # To get the alarm4pi directory we can use one of the following lines
 # ls `dirname "${BASH_SOURCE[0]}"`/../captures |
 # ls "$OLDPWD"/../captures |
-captures_dir=`dirname "$0"`/../captures
+captures_dir="$(dirname -- "$0")"/../captures
 ls "$captures_dir" | wc -l
 echo " images captured.</h3>"
 rm "$captures_dir"/*
