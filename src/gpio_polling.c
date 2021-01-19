@@ -29,7 +29,7 @@
 
 // Switch on the relay 1 (connected to a light switch?) when PIR sensor
 // is activated, that is, GPIO 8 is set to low
-#define RELAY1_ON_ALARM_EVENT
+// #define RELAY1_ON_ALARM_EVENT
 
 // ID of the thread created by init_polling
 pthread_t Polling_thread_id;
@@ -123,7 +123,7 @@ void capture_images(void)
    // -n: no preview
    // -t 2000: record a 2s clip
    // -f 5: framerate 5fps
-   char * const capture_exec_args[]={"raspivid", "-n", "-t", "2000", "-f", "5", "-o", full_image_file_path, NULL};
+   char * const capture_exec_args[]={"raspivid", "-n", "-t", "2000", "-fps", "5", "-o", full_image_file_path, NULL};
 //   char * const capture_exec_args[]={"touch", full_image_file_path, NULL};
    pid_t capture_proc_id;
    int capture_run_ret;
@@ -179,8 +179,8 @@ void on_alarm_event(void)
 
    event_printf("GPIO PIR (%i) value != 0\n", PIR_GPIO);
    send_info_notif("PIR sensor activated", "2");
-   capture_images(); // Take some photos and store them in the 'captures' directory
-   upload_captures(); // Synchronize (upload) the contant of 'captures' directory with the owncloud server
+   //capture_images(); // Take some photos and store them in the 'captures' directory
+   //upload_captures(); // Synchronize (upload) the contant of 'captures' directory with the owncloud server
 
 #ifdef RELAY1_ON_ALARM_EVENT
    if(gpio_read_err == 0) // if we succeded reading, restore the old gpio value

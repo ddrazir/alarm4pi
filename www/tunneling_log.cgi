@@ -12,6 +12,7 @@ echo "<!DOCTYPE html><html><head>
 <pre><xmp>"
 #cat `eval echo "~$USER"`/.socketxp/socketxp.log
 cat "$HOME"/.socketxp/socketxp.log
+journalctl -n 30 -u socketxp.service
 echo "</xmp></pre>
 </body>
 </html>"

@@ -94,8 +94,8 @@ int main(int argc, char *argv[])
   {
    char * const web_server_exec_args[]={WEB_SERVER_BIN_PATH"mjpg_streamer", "-i", WEB_SERVER_BIN_PATH"input_raspicam.so", "-o", WEB_SERVER_BIN_PATH"output_http.so -w ./www -p "WEB_SERVER_PORT, NULL}; // WEB_SERVER_PORT is defined in port_mapping.h
    //char * const web_server_exec_args[]={WEB_SERVER_BIN_PATH"mjpg_streamer", "-i", WEB_SERVER_BIN_PATH"input_file.so -f /tmp -n Pochampally.jpg", "-o", WEB_SERVER_BIN_PATH"output_http.so -w ./www -p "WEB_SERVER_PORT, NULL};
-   char * const tunneling_exec_args[]={"socketxp", "--no-auto-update", "connect", "http://localhost:"WEB_SERVER_PORT, NULL};
-   //char * const tunneling_exec_args[]={"journalctl", "-n", "3", "-o", "cat", "-u", "ssh.service", NULL};
+   //char * const tunneling_exec_args[]={"socketxp", "--no-auto-update", "connect", "http://localhost:"WEB_SERVER_PORT, NULL};
+   char * const tunneling_exec_args[]={"journalctl", "-n", "2", "-o", "cat", "-u", "socketxp.service", NULL};
    char * const * const processes_exec_args[]={web_server_exec_args, tunneling_exec_args};
 
    int main_err;
