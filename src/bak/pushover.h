@@ -2,7 +2,7 @@
 #define PUSHOVER_H
 
 // Pushover messages are currently limited to 1024 4-byte UTF-8 characters.
-#define MAX_PUSHOVER_MSG_SIZE (1024*4)
+#define MAX_PUSHOVER_MSG_SIZE (1024*4+1)
 
 // This function initializes the pushover client library
 // conf_filename is a pointer to a \0-terminated string containing the filename (and path) of a text
@@ -19,6 +19,9 @@ int pushover_init(char *conf_filename);
 // msg_str is a pointer to a \0-terminated string containing the notification message
 // msg_priority is pointer to a \0-terminated string containing a priority number from "-2" (min) to "2" (max)
 // The fn returns 0 on success or a errno error code
-int send_notification(char *msg_str, char *msg_priority);
+int send_pushover_notification(char *msg_str, char *msg_priority);
+
+// This function deinitializes the pushover client library
+void pushover_deinit(void);
 
 #endif // PUSHOVER_H

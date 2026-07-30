@@ -16,11 +16,14 @@
 #include "log_msgs.h"
 #include "public_ip.h"
 #include "owncloud.h"
-#include "pushover.h"
+#include "pushover2.h"
+#include "telegram.h"
 #include "proc_helper.h"
 
 #define PUSHOVER_CONFIG_FILENAME "pushover_conf.txt"
 #define OWNCLOUD_CONFIG_FILENAME "owncloud_conf.txt"
+#define TELEGRAM_CONFIG_FILENAME "telegram_conf.txt"
+#define OWNCLOUD_REMOTE_DIRECTORY "captures"
 
 // The sensor value will be checked each (in milliseconds):
 #define PIR_POLLING_PERIOD_SECS 1000
@@ -45,7 +48,7 @@ int send_info_notif(char *msg_str, char *msg_priority)
 
    snprintf(tot_msg_str, MAX_PUSHOVER_MSG_SIZE, "%s. %s", Msg_info_str, msg_str);
 
-   return(send_notification(tot_msg_str, msg_priority));
+   return(send_pushover_notification(tot_msg_str, msg_priority));
   }
 
 int get_current_time(int *hour, int *min, int*sec)
@@ -108,7 +111,16 @@ void get_localtime_filename(char *cur_time_str, size_t cur_time_str_len)
 //#define IMAGE_FILENAME_END "_%02d.jpg"
 #define IMAGE_FILENAME_END ".h264"
 
-void capture_images(void)
+char *compose_capture_filename(void)
+  {
+   static char image_filename[MAX_TIME_FILENAME_LEN+sizeof(IMAGE_FILENAME_END)+1];
+
+   get_localtime_filename(image_filename, sizeof(image_filename));
+   strcat(image_filename, IMAGE_FILENAME_END);
+   return(image_filename);
+  }
+
+void capture_images(char *image_filename)
   {
    char full_image_file_path[PATH_MAX+1];
    // raspistill parameters used:
@@ -127,10 +139,7 @@ void capture_images(void)
 //   char * const capture_exec_args[]={"touch", full_image_file_path, NULL};
    pid_t capture_proc_id;
    int capture_run_ret;
-   char image_filename[MAX_TIME_FILENAME_LEN+sizeof(IMAGE_FILENAME_END)+1];
 
-   get_localtime_filename(image_filename, sizeof(image_filename));
-   strcat(image_filename, IMAGE_FILENAME_END);
    if(strlen(Full_capture_path)+strlen(image_filename) < sizeof(full_image_file_path))
      {
       strcpy(full_image_file_path, Full_capture_path);
@@ -179,8 +188,12 @@ void on_alarm_event(void)
 
    event_printf("GPIO PIR (%i) value != 0\n", PIR_GPIO);
    send_info_notif("PIR sensor activated", "2");
-   //capture_images(); // Take some photos and store them in the 'captures' directory
-   //upload_captures(); // Synchronize (upload) the contant of 'captures' directory with the owncloud server
+
+   char *cap_filename = compose_capture_filename();
+   // Take some photos and store them in the 'captures' directory
+   capture_images(cap_filename);
+   // Synchronize (upload) the contant of 'captures' directory with the owncloud server
+   upload_capture(cap_filename);
 
 #ifdef RELAY1_ON_ALARM_EVENT
    if(gpio_read_err == 0) // if we succeded reading, restore the old gpio value
@@ -280,13 +293,17 @@ int init_polling(volatile int *exit_polling, const char *capture_path, char *msg
       ret_err=configure_gpios();
       if(ret_err==0)
         {
-         ret_err=owncloud_init(OWNCLOUD_CONFIG_FILENAME, Full_capture_path);
+         ret_err=owncloud_init(OWNCLOUD_CONFIG_FILENAME, Full_capture_path, OWNCLOUD_REMOTE_DIRECTORY);
          if(ret_err != 0)
             log_printf("The captured image upload is disabled!\n");
 
          ret_err=pushover_init(PUSHOVER_CONFIG_FILENAME);
          if(ret_err != 0)
-            log_printf("The alarm-event notification is disabled!\n");
+            log_printf("The alarm-event notification through Pushover is disabled!\n");
+
+         ret_err=telegram_init(TELEGRAM_CONFIG_FILENAME);
+         if(ret_err != 0)
+            log_printf("The alarm-event notification through Telegram is disabled!\n");
 
          Msg_info_str[0]='\0'; // Clear message info string so that update_ip_msg can compare it, detect a change and update it with the public IP
          update_ip_msg(msg_info_fmt); // Msg_info_str is updated
@@ -313,4 +330,11 @@ int wait_polling_end(void)
       log_printf("Error waiting for the polling thread to finish\n");
    unexport_gpios();
    return(ret_err);
+  }
+
+void deinit_polling(void)
+  {
+   owncloud_deinit();
+   pushover_deinit();
+   telegram_deinit();
   }

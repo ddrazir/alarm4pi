@@ -13,7 +13,6 @@ char *Port_mappings[][5]=
    {NULL, WEB_SERVER_PORT, WEB_SERVER_PORT, "TCP", "webcam RPi"},
    {NULL, NULL, NULL, NULL, NULL}
   };
-
 // maximum length of an IPv6 address string: INET6_ADDRSTRLEN
 // we initialize Lan_address to "" to indicate that the UPNP library has not
 // been (correctly) initialized (yet)
@@ -50,12 +49,13 @@ int init_UPNP(char *wan_address)
      {
       struct UPNPDev *cur_upnp_dev;
       int get_IGD_status;
+      char wan_address_buf[INET6_ADDRSTRLEN] = "";
 
       log_printf("List of UPNP devices found on the network :\n");
       for(cur_upnp_dev = upnp_dev_list; cur_upnp_dev != NULL; cur_upnp_dev = cur_upnp_dev->pNext)
          log_printf("-Descr. URL: %s\n service type: %s\n", cur_upnp_dev->descURL, cur_upnp_dev->st);
-
-      get_IGD_status = UPNP_GetValidIGD(upnp_dev_list, &Upnp_urls, &Upnp_data, Lan_address, sizeof(Lan_address));
+      // get_IGD_status = UPNP_GetValidIGD(upnp_dev_list, &Upnp_urls, &Upnp_data, Lan_address, sizeof(Lan_address)); // Old version
+      get_IGD_status = UPNP_GetValidIGD(upnp_dev_list, &Upnp_urls, &Upnp_data, Lan_address, sizeof(Lan_address), wan_address_buf, sizeof(wan_address_buf));
       if(get_IGD_status > 0) // 0 = NO IGD found: fn failed
         {
          int get_ip_ret;
@@ -165,9 +165,9 @@ int print_UPNP_mapping(void)
          char map_mapping_enabled[4]  = "";
          char map_remote_host[64] = "";
          char map_lease_duration[16] = ""; // original time, not remaining time :(
-         char map_index_str[10];
+         char map_index_str[32];
 
-         sprintf(map_index_str, "%d", map_index);
+         snprintf(map_index_str, sizeof(map_index_str), "%d", map_index);
          get_entry_error = UPNP_GetGenericPortMappingEntry(
                     Upnp_urls.controlURL,
                     Upnp_data.first.servicetype,

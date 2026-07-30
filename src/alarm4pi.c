@@ -1,4 +1,4 @@
-// Main source code file of the project alarm4pi version 0.2
+// Main source code file of the project alarm4pi version 0.3
 // Alarm deamon main
 
 #include <stdio.h>
@@ -20,10 +20,12 @@
 // for the web server. This is usefull when your Internet service provider is
 // using CG-NAT (carrier grade network address translation) and the Raspnerry
 // Pi cannot receive incomming connections from the Internet
-#define REVERSE_TUNNELING
+// If uncommented, this macro must be set to 1 or 2:
+// 1 -> Use SocketXP
+// 2 -> Use Tailscale
+#define REVERSE_TUNNELING 2
 
-
-// Only needed when the web server is installed
+// Only needed when the web server is installed in the OS directories
 #define WSERVER_ENV_VAR_NAME "LD_LIBRARY_PATH"
 #define WSERVER_ENV_VAR_VAL "/usr/local/lib"
 // Location of the mjpg_streamer web server directory that contains the executable and plugins.
@@ -89,13 +91,16 @@ int set_signal_handler(void)
    return(ret);
   }
 
-
 int main(int argc, char *argv[])
   {
    char * const web_server_exec_args[]={WEB_SERVER_BIN_PATH"mjpg_streamer", "-i", WEB_SERVER_BIN_PATH"input_raspicam.so", "-o", WEB_SERVER_BIN_PATH"output_http.so -w ./www -p "WEB_SERVER_PORT, NULL}; // WEB_SERVER_PORT is defined in port_mapping.h
    //char * const web_server_exec_args[]={WEB_SERVER_BIN_PATH"mjpg_streamer", "-i", WEB_SERVER_BIN_PATH"input_file.so -f /tmp -n Pochampally.jpg", "-o", WEB_SERVER_BIN_PATH"output_http.so -w ./www -p "WEB_SERVER_PORT, NULL};
    //char * const tunneling_exec_args[]={"socketxp", "--no-auto-update", "connect", "http://localhost:"WEB_SERVER_PORT, NULL};
+#if defined(REVERSE_TUNNELING) && (REVERSE_TUNNELING == 1)
    char * const tunneling_exec_args[]={"journalctl", "-n", "2", "-o", "cat", "-u", "socketxp.service", NULL};
+#else // REVERSE_TUNNELING == 2
+   char * const tunneling_exec_args[]={"tailscale", "status", NULL};
+#endif
    char * const * const processes_exec_args[]={web_server_exec_args, tunneling_exec_args};
 
    int main_err;
@@ -178,6 +183,8 @@ int main(int argc, char *argv[])
       // Wait until all the created processes exit and no more execution retries are pending
       wait_child_processes(Child_process_ids, processes_exec_args, num_child_processes, &Exit_daemon_loop, CHILD_PROC_EXEC_RETRY_PER, MAX_CHILD_PROC_EXEC_RETRIES);
 
+      deinit_polling();
+
       delete_UPNP_mapping();
       //print_UPNP_mapping();
       terminate_UPNP();
@@ -185,5 +192,6 @@ int main(int argc, char *argv[])
       close_log_files();
       syslog(LOG_NOTICE, "alarm4pi daemon ended.");
      }
+
    return(main_err);
   }

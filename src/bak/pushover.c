@@ -43,13 +43,14 @@
 #define INVALID_ADDR_PORT -1
 
 // Global variables obatined or derived from config file data by init fn
-char Token_id[MAX_CONF_STR_LEN+1];
-char User_id[MAX_CONF_STR_LEN+1];
-char Server_name[HOST_NAME_MAX+1];
-char Server_path[HOST_NAME_MAX+1];
-struct in_addr Server_ip;
+// We make them static so that they have internal linkage and won't conflict with variables of the same name in other files
+static char Token_id[MAX_CONF_STR_LEN+1];
+static char User_id[MAX_CONF_STR_LEN+1];
+static char Server_name[HOST_NAME_MAX+1];
+static char Server_path[HOST_NAME_MAX+1];
+static struct in_addr Server_ip;
 // This default value indicates that the Pushover library has been correctly initialized
-int Server_port = INVALID_ADDR_PORT;
+static int Server_port = INVALID_ADDR_PORT;
 
 int pushover_init(char *conf_filename)
   {
@@ -219,7 +220,7 @@ int pushover_init(char *conf_filename)
    return(ret_error);
   }
 
-int send_notification(char *msg_str, char *msg_priority)
+int send_pushover_notification(char *msg_str, char *msg_priority)
   {
    int ret_error=0;
    int socket_fd;
@@ -382,4 +383,9 @@ int send_notification(char *msg_str, char *msg_priority)
       log_printf("Error creating socket for connecting to Pushover server: errno=%d\n", errno);
      }
    return(ret_error);
+  }
+
+void pushover_deinit(void)
+  {
+
   }

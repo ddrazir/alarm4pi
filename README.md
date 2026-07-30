@@ -33,19 +33,29 @@ alarm4pi is composed of the following software components:
 * mjpg-streamer: This is the used web streaming server from jacksonliam
 (originally created by Tom Stöveken). It is already included
 in the alarm4pi repository, but it must be compiled manually serparately.
-* Pushover (optional): This app (available for iOS and Android) must be
-(purchased and) instaled in the user's mobile phone in order to receibe the
+* Means of communication to notify the user: When an alarm event is detected
+the alarm4pi must notify the user. Two options are available for this:
+  * Pushover (optional): This app (available for iOS and Android) can be
+(purchased and) instaled in the user's mobile phone in order to receive the
 intrusion and information notifications from alarm4pi.
-* SocketXP (optional): if your Raspberry Pi is connected to the Internet
-through an Internet service provider that uses CG-NAT (carrier-grade network
-address translation), it means that it is not directly accesible from the
-Internet: the Raspberry Pi can stablish outgoing connections but cannot
-receive incomming connections. So, in order for the alarm4pi web server to be
-accessible remotely when it is behind a CG-NAT a reverse tunneling mechanism
-is implemented. alarm4pi uses a service of the SocketXP company. So, if this
-is your case, you must create an account in SocketXP. Otherwise, you can
-disable the reverse tunneling mechanism of alarm4pi as described below.
-* Owncloud (optional): Apart from storing the photos taken locally, they are
+  * Telegram (optional): This free app (available for iOS and Android) can be
+instaled in the user's mobile phone in order to receive the intrusion and
+information notifications from alarm4pi.
+* Means of communication from the user to alarm4 pi: if your Raspberry Pi is
+connected to the Internet through an Internet service provider that uses CG-NAT
+(carrier-grade network address translation), it means that it is not directly
+accesible from the Internet: the Raspberry Pi can stablish outgoing connections
+but cannot receive incomming connections. So, in order for the alarm4pi web
+server to be accessible remotely when it is behind a CG-NAT a reverse tunneling
+or other mechanism must be implemented. So, if this is your case, you must
+enable one of these options:
+  * SocketXP (optional): alarm4pi can use the service of the SocketXP company.
+For this, you must create an account in SocketXP. Otherwise, you can disable the
+reverse tunneling mechanism of alarm4pi as described below.
+  * Tailscale (optional): alarm4pi can use the service of the Tailscale company.
+For this, you must create an account in Tailscale. Otherwise, you can disable the
+reverse tunneling mechanism of alarm4pi as described below.
+* Owncloud (optional): Apart from storing the photos taken locally, they can be
 uploaded to a Owncloud server where they can be accessed even if the Raspberry
 Pi is disconnected.
 
@@ -54,8 +64,8 @@ Before running alarm4pi you must prepare and configure some software
 components. The first step is downloading alatm4pi repository. Then:
 
 ### Pushover (optional)
-You must manually configure the notification system so that a message is
-sent to your mobile phone when activity is detected. For that, you must:
+You must manually configure one notification system so that a message is
+sent to your mobile phone when activity is detected. For that, you can:
 * Buy the Pushover application and install it in your phone so that you
 get a user key.
 * Create the file pushover_conf.txt in the project directory with the
@@ -65,13 +75,45 @@ server_url=http://api.pushover.net/1/messages.json
 token=<token>
 user=<your user key>
 ```
-If this configuration file is not created, the notification mechanism is
-disabled.
+If no notification configuration file is created, the notification
+mechanism is disabled.
+* Install the development library Curl on your Raspberry by typing:
+``` sudo apt-get install libcurl4-openssl-dev ```
+
+### Telegram (optional)
+You must manually configure one notification system so that a message is
+sent to your mobile phone when activity is detected. For that, you can
+previously follow the these steps: 
+* Install the Telegram app on your mobile phone. In the Telegram app:
+* Create a Telegram bot
+   * Search for @BotFather
+   * Send: /newbot;
+   * Follow the prompts: Choose a display name (e.g. "alarm4pi"), choose a username ending in bot (e.g. alarm4pi_notify_bot)
+   * BotFather will reply with a token similar to: "123456789:AAHk3...your_token...". Keep this token secret
+* Start the bot: In the Telegram app:
+   * Search for your bot's username
+   * Open the chat
+   * Press Start (or send /start). This allows the bot to send you messages.
+* Get your chat ID. After you have started the bot, open an Internet browser and:
+   * Open this URL: https://api.telegram.org/bot<token>/getUpdates (replace <token>)
+   * You'll receive JSON text file
+   * From that text copy the "id" in the "chat" section
+   * Create the file telegram_conf.txt in the project directory with the
+following content:
+```
+chat_id=<the ID of your chat with the bot>
+api_token=<your bot token>
+```
+* Install the development library Curl on your Raspberry by typing:
+``` sudo apt-get install libcurl4-openssl-dev ```
+If no notification configuration file is created, the notification
+mechanism is disabled.
 
 ### SocketXP (optional)
-You must manually setup the reverse tunneling mechanism (in case your
-Raspberry Pi is connected to the Internet through a connection with CG-NAT).
-alarm4pi uses SocketXP. So:
+In case your Raspberry Pi is connected to the Internet through a connection
+with CG-NAT you must manually setup a reverse tunneling mechanism. For
+example, alarm4pi can use SocketXP. To install SocketXP and setup on your
+Raspberry Pi:
 * Register in SocketXP to get an account and get the tunneling plan
 * Download the socketxp agent and move it to a directory in the system path
 as shown in your socketxp user portal: https://portal.socketxp.com/ when
@@ -87,12 +129,24 @@ socketxp login "<your authentication token>"
 If you do not need to use reverse tunneling, you can disable this mechanism
 in alarm4pi.c by commenting the REVERSE_TUNNELING definition.
 
+### Tailscale (optional)
+In case your Raspberry Pi is connected to the Internet through a connection
+with CG-NAT you must manually setup a reverse tunneling mechanism. For
+example, alarm4pi can use Tailscale. To install Tailscale and setup on your
+Raspberry Pi:
+* Open a terminal on your Raspberry Pi
+* Ensure your Raspberry Pi OS package list is completely fresh.
+Run: sudo apt update
+* Run the installation script. Run: curl -fsSL https://tailscale.com/install.sh | sh
+* Authenticate your device. Run: sudo tailscale up
+
 ### Owncloud (optional)
 You must have ac account in an Owncloud server in order for the photos to be
 uploaded. Moreover, you must manually configure the Owncloud mechanism for
 alarm4pi to upload the photos. For that, you must:
 * Install the command-line Owncloud application in your Raspberry by typing:
 ``` sudo apt-get install owncloud-client-cmd ```
+sudo apt install cadaver
 * Create a directory in your Owncloud server account called 'captures' or
 whatever name you have used for the directory storing the photos in your
 Raspberry.
@@ -103,8 +157,9 @@ server_url=https://<your server name>/remote.php/webdav/captures/
 user=<your owncloud user>
 password=<your owncloud user password>
 ```
-
 If this configuration file is not created, the upload mechanism is disabled.
+* Install the development library Curl on your Raspberry by typing:
+``` sudo apt-get install libcurl4-openssl-dev ```
 
 ### Camera
 The Raspberry Pi camera interface must be activated in the current Raspbian

@@ -195,14 +195,15 @@ int hostname_to_ip_at_dns(char *dns_server, char *domain_name, struct in_addr *i
                         if (resp_type == ns_t_a)
                           {
                            u_char *record_data; // character pointer to parse DNS message
-                           char rec_disp_buf[256]; // For displaying the record as text
-
-                           ns_sprintrr(&resp_handle, &resp_record, NULL, NULL, rec_disp_buf, 256);
-                           log_printf("> %s\n", rec_disp_buf);    
 
                            record_data = (u_char *)ns_rr_rdata(resp_record); // Set record_data to point the IP address of record.
 
-                           *ip_addr = *(struct in_addr *)record_data;
+                           char rec_disp_buf[INET_ADDRSTRLEN]; // For displaying the record as text
+
+                           if(inet_ntop(AF_INET, record_data, rec_disp_buf, sizeof(rec_disp_buf)) != NULL)
+                              log_printf("> %s\n", rec_disp_buf);
+
+                           memcpy(ip_addr, record_data, sizeof(*ip_addr));
                            fn_ret=0;
                           }
                         else

@@ -16,4 +16,7 @@ int init_polling(volatile int *exit_polling, const char *capture_path, char *msg
 
 int wait_polling_end(void);
 
+// This function deinitializes all the library initializations performed by init_polling
+void deinit_polling(void);
+
 #endif // GPIO_POLLING
