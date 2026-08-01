@@ -1,4 +1,5 @@
-cmake_minimum_required(VERSION 2.8.3)
+# cmake_minimum_required(VERSION 2.8.3)
+cmake_minimum_required(VERSION 3.5)
 set(CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake ${CMAKE_MODULE_PATH})
 
 project("mjpg-streamer" C)
