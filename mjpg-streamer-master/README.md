@@ -34,6 +34,7 @@ Input plugins:
 * input_ptp2
 * input_raspicam ([documentation](mjpg-streamer-experimental/plugins/input_raspicam/README.md))
 * input_uvc ([documentation](mjpg-streamer-experimental/plugins/input_uvc/README.md))
+* input_libcamera ([documentation](mjpg-streamer-experimental/plugins/input_libcamera/README.md))
 
 Output plugins:
 

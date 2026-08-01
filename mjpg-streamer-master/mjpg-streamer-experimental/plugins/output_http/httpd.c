@@ -406,6 +406,8 @@ void send_snapshot(cfd *context_fd, int input_number)
     char buffer[BUFFER_SIZE] = {0};
     struct timeval timestamp;
 
+    pglobal->in[input_number].snapshot = 1;
+
     /* wait for a fresh frame */
     pthread_mutex_lock(&pglobal->in[input_number].db);
     pthread_cond_wait(&pglobal->in[input_number].db_update, &pglobal->in[input_number].db);

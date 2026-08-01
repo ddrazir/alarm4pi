@@ -167,12 +167,12 @@ build. If it is not, run:
 to activate it.
 
 ### MJPG-streamer compilation (and test)
-alarm4pi uses mjpg-streamer from https://github.com/jacksonliam/mjpg-streamer
+alarm4pi uses mjpg-streamer from https://github.com/ArduCAM/mjpg-streamer
 which is already included in the alarm4pi project but must be compiled
 manually. For that:
 * You must install its software dependencies:
 ```
-sudo apt-get install cmake libjpeg8-dev
+sudo apt-get install cmake libjpeg62-turbo-dev libcamera-dev
 sudo apt-get install gcc g++
 ```
 Then compile mjpg-streamer by typing from the alarmn4pi project directory:
@@ -187,7 +187,7 @@ You can check the repository's install instructions if needed.
 The operation of mjpg-streamer can be checked separately by typing:
 ```
 cd mjpg-streamer-master/mjpg-streamer-experimental
-./mjpg_streamer -i "input_raspicam.so" -o "output_http.so -w www -p 8008
+./mjpg_streamer -i "input_libcamera.so" -o "output_http.so -w www -p 8008
 ```
 and then browsing the site http://localhost:8008 in the Raspberry Pi browser.
 

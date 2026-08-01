@@ -62,6 +62,7 @@ struct _input {
     struct _control *in_parameters;
     int parametercount;
 
+    int snapshot;
 
     struct v4l2_jpegcompression jpegcomp;
 
