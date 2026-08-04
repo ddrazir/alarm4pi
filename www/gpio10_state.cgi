@@ -9,7 +9,7 @@ echo "<!DOCTYPE html><html><head>
 <meta name="viewport" content="width=device-width, initial-scale=1"></head>
 <body>
 <h3>GPIO 10="
-gpio -g read 10
-echo " (0=relay on)</h3>
+pinctrl get 10
+echo " (lo=relay on)</h3>
 </body>
 </html>"

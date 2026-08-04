@@ -158,6 +158,7 @@ int input_init(input_parameter *param, int plugin_no)
     bool controls_flag = false;
     
     pctx = new context();
+    pthread_mutex_init(&pctx->control_mutex, nullptr);
     
     settings = pctx->init_settings = init_settings();
     pglobal = param->global;
@@ -302,7 +303,8 @@ int input_init(input_parameter *param, int plugin_no)
     pctx->camera.configureStill(width, height, formats::BGR888, settings->buffercount, settings->rotation);
     device_id = pctx->camera.getCameraId();
     in->name = (char*)malloc((strlen(device_id) + 1) * sizeof(char));
-    sprintf(in->name, device_id);
+    //sprintf(in->name, device_id);
+    strcpy(in->name, device_id);
 
     if (settings->fps){
         frame_time = 1000000 / settings->fps;
@@ -388,7 +390,8 @@ int input_stop(int id)
 
     if (pctx != NULL) {
         DBG("will cancel input thread\n");
-        pthread_cancel(pctx->worker);
+       // pthread_cancel(pctx->worker);
+       pglobal->stop = 1;
     }
     return 0;
 }
@@ -514,6 +517,7 @@ void worker_cleanup(void *arg)
     input * in = (input*)arg;
     if (in->context != NULL) {
         context *pctx = (context*)in->context;
+       pthread_mutex_destroy(&pctx->control_mutex);
         delete pctx;
         in->context = NULL;
     }

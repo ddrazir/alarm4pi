@@ -142,7 +142,11 @@ int pushover_init(char *conf_filename)
                   if(strncmp(server_url, "https://", 8) == 0) // URL seems to be correct
                     {
                      if(strlen(server_url) <= MAX_URL_LEN)
+                       {
                         strcpy(Server_url, server_url);
+                        ret_error = 0;
+                        log_printf("Using Pushover service: %s to send notifications\n",Token_id);
+                       }
                      else
                        {
                         log_printf("Error loading Pushover config file: server URL is too long (more than " TOSTRING(MAX_URL_LEN) " characters)\n");

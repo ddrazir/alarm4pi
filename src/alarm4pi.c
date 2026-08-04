@@ -38,9 +38,9 @@
 // (must finish with '/')
 #define LOG_FILE_PATH "./log/"
 
-// Directory where a camera frame will be stored each time an alarm event occurs
+// Subdirectory where camera frames or video will be stored each time an alarm event occurs
 // (must finish with '/')
-#define CAPTURE_IMAGE_PATH "./captures/"
+#define CAPTURE_IMAGE_PATH "captures/"
 
 // List of child processes:
 pid_t Child_process_ids[2] = {-1, -1}; // Initialize to -1 in order not to send signals if no child process was created
@@ -93,9 +93,9 @@ int set_signal_handler(void)
 
 int main(int argc, char *argv[])
   {
-   char * const web_server_exec_args[]={WEB_SERVER_BIN_PATH"mjpg_streamer", "-i", WEB_SERVER_BIN_PATH"input_raspicam.so", "-o", WEB_SERVER_BIN_PATH"output_http.so -w ./www -p "WEB_SERVER_PORT, NULL}; // WEB_SERVER_PORT is defined in port_mapping.h
+   char * const web_server_exec_args[]={WEB_SERVER_BIN_PATH"mjpg_streamer", "-i", WEB_SERVER_BIN_PATH"input_libcamera.so", "-o", WEB_SERVER_BIN_PATH"output_http.so -w ./www -p "WEB_SERVER_PORT, NULL}; // WEB_SERVER_PORT is defined in port_mapping.h
    //char * const web_server_exec_args[]={WEB_SERVER_BIN_PATH"mjpg_streamer", "-i", WEB_SERVER_BIN_PATH"input_file.so -f /tmp -n Pochampally.jpg", "-o", WEB_SERVER_BIN_PATH"output_http.so -w ./www -p "WEB_SERVER_PORT, NULL};
-   //char * const tunneling_exec_args[]={"socketxp", "--no-auto-update", "connect", "http://localhost:"WEB_SERVER_PORT, NULL};
+
 #if defined(REVERSE_TUNNELING) && (REVERSE_TUNNELING == 1)
    char * const tunneling_exec_args[]={"journalctl", "-n", "2", "-o", "cat", "-u", "socketxp.service", NULL};
 #else // REVERSE_TUNNELING == 2

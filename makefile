@@ -7,7 +7,7 @@ SDIR = src
 CC = gcc
 CC_FLAGS = -Wall -g
 
-LIBS = -lminiupnpc -lresolv -pthread -lcurl
+LIBS = -lminiupnpc -lresolv -pthread -lcurl -lgpiod
 
 # alarm4pi main (deamon) executable file
 EXEC = alarm4pid

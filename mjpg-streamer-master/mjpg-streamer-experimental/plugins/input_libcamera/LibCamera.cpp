@@ -158,14 +158,22 @@ Stream *LibCamera::VideoStream(uint32_t *w, uint32_t *h, uint32_t *stride) const
 	return viewfinder_stream_;
 }
 
-int LibCamera::queueRequest(Request *request) {
+int LibCamera::queueRequest(Request *request)
+{
     std::lock_guard<std::mutex> stop_lock(camera_stop_mutex_);
+
     if (!camera_started_)
         return -1;
+
     {
         std::lock_guard<std::mutex> lock(control_mutex_);
-        request->controls() = std::move(controls_);
+
+        if (!controls_.empty()) {
+            request->controls().merge(controls_);
+            controls_.clear();
+        }
     }
+
     return camera_->queueRequest(request);
 }
 
@@ -175,7 +183,9 @@ void LibCamera::requestComplete(Request *request) {
     processRequest(request);
 }
 
-void LibCamera::processRequest(Request *request) {
+void LibCamera::processRequest(Request *request)
+{
+    std::lock_guard<std::mutex> lock(free_requests_mutex_);
     requestQueue.push(request);
 }
 
@@ -183,6 +193,7 @@ void LibCamera::returnFrameBuffer(LibcameraOutData frameData) {
     uint64_t request = frameData.request;
     Request * req = (Request *)request;
     req->reuse(Request::ReuseBuffers);
+    req->controls().clear();
     queueRequest(req);
 }
 
@@ -218,7 +229,8 @@ bool LibCamera::readFrame(LibcameraOutData *frameData){
 
 void LibCamera::set(ControlList controls){
     std::lock_guard<std::mutex> lock(control_mutex_);
-	this->controls_ = std::move(controls);
+//	this->controls_ = std::move(controls);
+     controls_.merge(controls);
 }
 
 int LibCamera::resetCamera(uint32_t width, uint32_t height, PixelFormat format, int buffercount, int rotation) {

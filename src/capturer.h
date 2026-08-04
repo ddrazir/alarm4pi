@@ -1,0 +1,27 @@
+// Library (for Raspberry Pi OS 64 bits) that uses the Curl library to
+// capture one frame and store it on a local directory.
+// It is equivalent to brwose:
+//<html>
+//<head><title>alarm4pi static img.</title></head>
+//<body>
+// <center><img src="./?action=snapshot" alt="This is a static snapshot" /></center>
+//</body>
+//</html>
+
+#ifndef CAPTURER_H
+#define CAPTURER_H
+
+// This function initializes the capturer client library
+// full_capture_path: Directory where frames will be stored
+// The fn returns 0 on success or a errno error code
+int capturer_init(const char *full_capture_path);
+
+// This function connect web server and download one frame and stores it.
+// filename_to_save is a pointer to a \0-terminated string containing the name of the file to create
+// The fn returns 0 on success or a errno error code
+int capturer_get_frame(const char *filename_to_save);
+
+// This function deinitializes the capturer client library
+void capturer_deinit(void);
+
+#endif // CAPTURER_H

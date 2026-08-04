@@ -26,6 +26,29 @@ following hardware to be attached to your Raspberry Pi:
 * Optionally up to 4 realy switch can be connected to GPIO 8, 9, 10 and 11, for
 example, to remotelly switch on/off house devices. If a lamp is connected, it
 is assumed to be connected to GPIO 8 through an active-low realy.
+* Optonally up to 2 contact sensors can be connected to GPIO 5 and 6 and should short-circuit any of these pens to GND when activated.
+
+Connection resume:
+Raspberry Pi 3 Model B has a single 40-pin expansion header. Header pins are numbered from pin 1 to pin 40.
+It provides access to 28 general purpose input/output pins (GPIOs): GPIO 0...16 and GPIO 21..31.
+Connections for alarm4pi:
+Header pin=Function -> Connected to
+-----------------------------------
+Pin 2 = 5 V DC -> PIR sensor input power
+Pin 4 = 5 V DC -> Relays' input power
+Pin 6 = GND -> PIR sensor GND
+Pin 9 = GND -> PIR sensor GND
+Pin 11 = GPIO 17 -> PIR sensor output signal
+Pin 14 = GND -> Relays' GND
+Pin 19 = GPIO 10 -> Relay 3 input control signal 
+Pin 20 = GND -> Relays' GND
+Pin 21 = GPIO 9 -> Relay 2 input control signal 
+Pin 23 -> GPIO 11 -> Relay 4 input control signal 
+Pin 24 -> GPIO 8 -> Relay 1 input control signal 
+Pin 25 = GND -> Relays' GND
+Pin 29 = GPIO 5 -> Contact sensor 1
+Pin 30 = GND -> Contact sensors' GND
+Pin 31 = GPIO 6 -> Contact sensor 2
 
 ### Required software
 alarm4pi is composed of the following software components:
@@ -60,7 +83,10 @@ Pi is disconnected.
 
 ## Software prerequisites and depencencies
 Before running alarm4pi you must prepare and configure some software
-components. The first step is downloading alatm4pi repository. Then:
+components. The first step is downloading alarm4pi repository. Then:
+``` sudo apt-get install libgpiod-dev ```
+
+Depending on the features that you want to enable more packages should be installed and further configuration performed:
 
 ### Pushover (optional)
 You must manually configure one notification system so that a message is

@@ -8,9 +8,9 @@ echo "<!DOCTYPE html><html><head>
 <title>GPIO low</title>
 <meta name="viewport" content="width=device-width, initial-scale=1"></head>
 <body>
-<h3>Setting GPIO 10 to 0...</h3>
+<h3>Setting GPIO 10 to lo...</h3>
 <pre>"
-gpio -g write 10 0
+pinctrl set 10 op dl
 echo "</pre>
 </body>
 </html>"

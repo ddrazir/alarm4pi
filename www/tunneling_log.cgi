@@ -11,8 +11,8 @@ echo "<!DOCTYPE html><html><head>
 <h3>alarm4pi tunneling log:</h3>
 <pre><xmp>"
 #cat `eval echo "~$USER"`/.socketxp/socketxp.log
-cat "$HOME"/.socketxp/socketxp.log
-journalctl -n 30 -u socketxp.service
+#cat "$HOME"/.socketxp/socketxp.log
+journalctl -u tailscaled.service --no-pager -n 40
 echo "</xmp></pre>
 </body>
 </html>"

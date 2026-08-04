@@ -12,12 +12,13 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 
-#include "bcm_gpio.h"
+#include "gpio_control.h"
 #include "log_msgs.h"
 #include "public_ip.h"
 #include "owncloud.h"
 #include "pushover2.h"
 #include "telegram.h"
+#include "capturer.h"
 #include "proc_helper.h"
 
 #define PUSHOVER_CONFIG_FILENAME "pushover_conf.txt"
@@ -27,11 +28,9 @@
 
 // The sensor value will be checked each (in milliseconds):
 #define PIR_POLLING_PERIOD_SECS 1000
-// The sensor value will be remembered during (in periods):
-#define PIR_PERMAN_PERS 60
 
-// Switch on the relay 1 (connected to a light switch?) when PIR sensor
-// is activated, that is, GPIO 8 is set to low
+// Switch on the relay 1 (connected to a light switch?) when an alarm sensor
+// is activated, that is, any GPIO alarm pin is set to low
 // #define RELAY1_ON_ALARM_EVENT
 
 // ID of the thread created by init_polling
@@ -42,13 +41,22 @@ char Msg_info_str[INET6_ADDRSTRLEN+100];
 // Directory where the images captures by the camera will be stored
 char Full_capture_path[PATH_MAX+1];
 
+// List of GPIO pins that will the monitored.
+// Any change in their values will trigger an alarm event
+const int Alarm_gpios[]={PIR_GPIO, CONTACT1_GPIO, CONTACT2_GPIO};
+
+#define MAX_NOTIF_MSG_SIZE ((MAX_PUSHOVER_MSG_SIZE) < (MAX_TELEGRAM_MSG_SIZE) ? (MAX_PUSHOVER_MSG_SIZE) : (MAX_TELEGRAM_MSG_SIZE))
+
 int send_info_notif(char *msg_str, char *msg_priority)
   {
-   char tot_msg_str[MAX_PUSHOVER_MSG_SIZE];
+   char tot_msg_str[MAX_NOTIF_MSG_SIZE];
+   int ret_err1, ret_err2;
 
-   snprintf(tot_msg_str, MAX_PUSHOVER_MSG_SIZE, "%s. %s", Msg_info_str, msg_str);
+   snprintf(tot_msg_str, MAX_NOTIF_MSG_SIZE, "%s. %s", Msg_info_str, msg_str);
 
-   return(send_pushover_notification(tot_msg_str, msg_priority));
+   ret_err1 = send_telegram_message(tot_msg_str);
+   ret_err2 = send_pushover_notification(tot_msg_str, msg_priority);
+   return((ret_err1)?ret_err1:ret_err2);
   }
 
 int get_current_time(int *hour, int *min, int*sec)
@@ -108,8 +116,8 @@ void get_localtime_filename(char *cur_time_str, size_t cur_time_str_len)
    get_localtime_str(cur_time_str, cur_time_str_len, "%Y-%m-%d_%Hh%Mm%Ss");
   }
 
-//#define IMAGE_FILENAME_END "_%02d.jpg"
-#define IMAGE_FILENAME_END ".h264"
+#define IMAGE_FILENAME_END ".jpg"
+//#define IMAGE_FILENAME_END ".h264"
 
 char *compose_capture_filename(void)
   {
@@ -120,23 +128,14 @@ char *compose_capture_filename(void)
    return(image_filename);
   }
 
-void capture_images(char *image_filename)
+void capture_images_cmd(char *image_filename)
   {
    char full_image_file_path[PATH_MAX+1];
-   // raspistill parameters used:
+   // rpicam-vid parameters used:
    // -n: no preview
-   // -q 10: image quality 10 % (quality 100 means almost completely uncompressed)
-   // -bm: burst capture mode: The camera does not return to preview mode between captures, allowing captures to be taken closer together
-   // -tl 1000: 1000 ms time between shots. %d must be specified in the filename for the counter
-   // -t 2000: 2000 ms time before the camera (takes picture and) shuts down. 2000/1000=2 images will be take
-   // -th none: no thumbnail will be inserted into the JPEG file
-//   char * const capture_exec_args[]={"raspistill", "-n", "-w", "640", "-h", "480", "-q", "10", "-o", full_image_file_path, "-bm", "-tl", "1000", "-t", "2000", "-th", "none", NULL};
-   // raspivid parameters used_
-   // -n: no preview
-   // -t 2000: record a 2s clip
-   // -f 5: framerate 5fps
-   char * const capture_exec_args[]={"raspivid", "-n", "-t", "2000", "-fps", "5", "-o", full_image_file_path, NULL};
-//   char * const capture_exec_args[]={"touch", full_image_file_path, NULL};
+   // --framerate 5: 5 fps
+   // -t 5s: 5 s time recording
+   char * const capture_exec_args[]={"rpicam-vid", "-n", "-t", "5s", "--framerate", "5", "-o", full_image_file_path, NULL};
    pid_t capture_proc_id;
    int capture_run_ret;
 
@@ -152,7 +151,7 @@ void capture_images(char *image_filename)
 
          wait_ret=waitpid(capture_proc_id, NULL, 0); // wait for the capture process to finish
          if(wait_ret != -1) // Error returned
-            event_printf("Photographs have been taken: %s\n", full_image_file_path);
+            log_printf("Presumably, a video file has been stored in %s\n", full_image_file_path);
          else
             log_printf("Error waiting for the capture process to finish\n", capture_exec_args[0]);
         }
@@ -163,8 +162,14 @@ void capture_images(char *image_filename)
       log_printf("The complete captured image filename (%s) could not be composed: path too long\n", image_filename);
   }
 
-void on_alarm_event(void)
+// This fn is called when an alarm event accurs. Tha is, when an alarm
+// GPIO pin chages its value.
+// pin: number of GPIO pin that changed
+// val: new value that this pin has (0 or 1)
+void on_alarm_event(int pin, int val)
   {
+   char notif_msg[MAX_NOTIF_MSG_SIZE];
+   
 #ifdef RELAY1_ON_ALARM_EVENT
    int gpio_read_err;
    int old_gpio_val;
@@ -174,77 +179,84 @@ void on_alarm_event(void)
    if(get_current_time(&cur_hour, NULL, NULL) == 0) // Success reading the time
       if(cur_hour > 8 && cur_hour < 18)
          at_night = 0;
-   if(at_night)
+   if(at_night && val != PIN_LOW_VAL)
      {
       // Read the current gpio value before modifying it
-      gpio_read_err = GPIO_read(RELAY1_GPIO, &old_gpio_val);
+      gpio_read_err = gpio_read(RELAY1_GPIO, &old_gpio_val);
       if(gpio_read_err == 0) // Success reading
-         if(GPIO_write(RELAY1_GPIO, PIN_LOW_VAL) == 0) // switch on the relay. We assume active low
+         if(gpio_write(RELAY1_GPIO, PIN_LOW_VAL) == 0) // switch on the relay. We assume active low
             millisleep(100); // write success: wait for the realy and the bulb to switch on
      }
    else
       gpio_read_err = -1; // The GPIO value has not been read
 #endif
 
-   event_printf("GPIO PIR (%i) value != 0\n", PIR_GPIO);
-   send_info_notif("PIR sensor activated", "2");
+   snprintf(notif_msg, sizeof(notif_msg), "Sensor pin (GPIO %i) changed its value to %i\n", pin, val);
+   event_printf(notif_msg);
+   send_info_notif(notif_msg, "2");
 
-   char *cap_filename = compose_capture_filename();
-   // Take some photos and store them in the 'captures' directory
-   capture_images(cap_filename);
-   // Synchronize (upload) the contant of 'captures' directory with the owncloud server
-   upload_capture(cap_filename);
+   if(val != PIN_LOW_VAL) // The sensors signal the alarm event with a PIN_HIGH_VAL
+     {
+      char *cap_filename = compose_capture_filename();
+      // Take some photos and store them in the 'captures' directory
+      //capture_images_cmd(cap_filename);
+      capturer_get_frame(cap_filename);
+      // Synchronize (upload) the contant of 'captures' directory with the owncloud server
+      upload_capture(cap_filename);
+     }
 
 #ifdef RELAY1_ON_ALARM_EVENT
-   if(gpio_read_err == 0) // if we succeded reading, restore the old gpio value
-      GPIO_write(RELAY1_GPIO, old_gpio_val);
+   if(gpio_read_err == 0 && val != PIN_LOW_VAL) // if we succeded reading, restore the old gpio value
+      gpio_write(RELAY1_GPIO, old_gpio_val);
 #endif
   }
+
+// Number of GPIO pins to monitor
+#define NUM_ALARM_GPIOS (sizeof(Alarm_gpios)/sizeof(Alarm_gpios[0]))
 
 void *polling_thread(volatile int *exit_polling)
   {
    int ret_err;
    int read_err;
    int alarm_armed;
-   int curr_pir_value;
-   int last_pir_value;
-   int pir_perman_counter;
-
-   event_printf("GPIO server initiated\n");
+   int curr_pin_value;
+   int last_pin_value[NUM_ALARM_GPIOS];
+   int pin_ind;
+   
+   event_printf("GPIO monitor initiated\n");
 
    read_err = 0; // Default thread return value
-   pir_perman_counter = 0; // Sensor not activated
-   last_pir_value = 0; // Assume that the sensor is off at the beginning
+
+   for(pin_ind=0;pin_ind<NUM_ALARM_GPIOS;pin_ind++)
+      last_pin_value[pin_ind] = 0; // Assume that the sensors are off at the beginning
+
    while(*exit_polling == 0) // While the exit signal is not triggered:
      {
       // Check if the alarm is armed:
-      ret_err = GPIO_read(ARMING_GPIO, &alarm_armed);
+      ret_err = gpio_read(ARMING_GPIO, &alarm_armed);
       if(ret_err == 0) // Success reading
         {
          if(alarm_armed == PIN_LOW_VAL) // If the alarm is armed (GPIO set to low):
            {
-            // Check if the PIR sensor is activated:
-            ret_err = GPIO_read(PIR_GPIO, &curr_pir_value);
-            if(ret_err == 0) // Success reading
-              {
-               if(curr_pir_value != last_pir_value) // Sensor output changed
+            for(pin_ind=0;pin_ind<NUM_ALARM_GPIOS;pin_ind++)
+              {     
+               // Check if the sensor is activated:
+               ret_err = gpio_read(Alarm_gpios[pin_ind], &curr_pin_value);
+               if(ret_err == 0) // Success reading
                  {
-                  if(curr_pir_value != PIN_LOW_VAL) // PIR sensor is assumed to be active high
+                  if(curr_pin_value != last_pin_value[pin_ind]) // Sensor output changed
                     {
-                     on_alarm_event();
+                     on_alarm_event(Alarm_gpios[pin_ind], curr_pin_value);
+                     last_pin_value[pin_ind] = curr_pin_value;
                     }
-                  last_pir_value = curr_pir_value;
                  }
-
-               if(curr_pir_value != PIN_LOW_VAL) // Sensor output activated, remember its value for a time
-                  pir_perman_counter = PIR_PERMAN_PERS;
-              }
-            else
-              {
-               if(read_err==0) // No error code has been logged yet
+               else
                  {
-                  log_printf("Error %i while reading PIR GPIO (%i): %s\n", ret_err, PIR_GPIO, strerror(ret_err));
-                  read_err=ret_err;
+                  if(read_err==0) // No error code has been logged yet
+                    {
+                     log_printf("Error %i while reading GPIO (%i): %s\n", ret_err, Alarm_gpios[pin_ind], strerror(ret_err));
+                     read_err=ret_err;
+                    }
                  }
               }
            }
@@ -258,8 +270,6 @@ void *polling_thread(volatile int *exit_polling)
            }
         }
       millisleep(PIR_POLLING_PERIOD_SECS);
-      if(pir_perman_counter > 0)
-         pir_perman_counter--;
      }
 
    event_printf("GPIO server terminated with error code: %i\n", read_err);
@@ -287,7 +297,7 @@ int init_polling(volatile int *exit_polling, const char *capture_path, char *msg
       return(ret_err);
      }
 
-   ret_err=export_gpios(); // This function and configure_gpios() will log error messages
+   ret_err=open_gpios();
    if(ret_err==0)
      {
       ret_err=configure_gpios();
@@ -295,15 +305,19 @@ int init_polling(volatile int *exit_polling, const char *capture_path, char *msg
         {
          ret_err=owncloud_init(OWNCLOUD_CONFIG_FILENAME, Full_capture_path, OWNCLOUD_REMOTE_DIRECTORY);
          if(ret_err != 0)
-            log_printf("The captured image upload is disabled!\n");
+            log_printf("The captured image upload is disabled (error=%d)!\n",ret_err);
 
          ret_err=pushover_init(PUSHOVER_CONFIG_FILENAME);
          if(ret_err != 0)
-            log_printf("The alarm-event notification through Pushover is disabled!\n");
+            log_printf("The alarm-event notification through Pushover is disabled (error=%d)!\n",ret_err);
 
          ret_err=telegram_init(TELEGRAM_CONFIG_FILENAME);
          if(ret_err != 0)
-            log_printf("The alarm-event notification through Telegram is disabled!\n");
+            log_printf("The alarm-event notification through Telegram is disabled (erro=%d)!\n",ret_err);
+
+         ret_err=capturer_init(Full_capture_path);
+         if(ret_err != 0)
+            log_printf("The image downloader (capturer) in case of alarm-event is disabled (erro=%d)!\n",ret_err);
 
          Msg_info_str[0]='\0'; // Clear message info string so that update_ip_msg can compare it, detect a change and update it with the public IP
          update_ip_msg(msg_info_fmt); // Msg_info_str is updated
@@ -315,7 +329,11 @@ int init_polling(volatile int *exit_polling, const char *capture_path, char *msg
          else
             log_printf("Error %i creating polling thread: %s\n", ret_err, strerror(ret_err));
         }
+      else
+       log_printf("While configuring direcction of pins error %d: %s\n",ret_err,strerror(ret_err));
      }
+   else
+      log_printf("While initializing GPIO pin control error %d: %s\n",ret_err,strerror(ret_err));
 
    return(ret_err);
   }
@@ -328,7 +346,7 @@ int wait_polling_end(void)
       log_printf("Polling thread terminated correctly\n");
    else
       log_printf("Error waiting for the polling thread to finish\n");
-   unexport_gpios();
+   close_gpios();
    return(ret_err);
   }
 
@@ -337,4 +355,5 @@ void deinit_polling(void)
    owncloud_deinit();
    pushover_deinit();
    telegram_deinit();
+   capturer_deinit();
   }

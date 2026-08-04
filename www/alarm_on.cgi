@@ -8,9 +8,9 @@ echo "<!DOCTYPE html><html><head>
 <title>Alarm on</title>
 <meta name="viewport" content="width=device-width, initial-scale=1"></head>
 <body>
-<h3>Enabling alarm (setting to 0)...</h3>
+<h3>Enabling alarm (setting pin to low)...</h3>
 <pre>"
-gpio -g write 18 0
+pinctrl set 18 op dl
 echo "</pre>
 </body>
 </html>"

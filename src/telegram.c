@@ -91,6 +91,7 @@ int telegram_init(char *conf_filename)
                   if(curl_res == CURLE_OK)
                     {
                      Telegram_initialized = 1; // Set the library initialization flag as true
+                     log_printf("Using Telegram bot: %s to send notifications\n",Api_token);
                      ret_error = 0; // Initialization succeeded
                     }
                   else

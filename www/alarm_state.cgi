@@ -9,7 +9,7 @@ echo "<!DOCTYPE html><html><head>
 <meta name="viewport" content="width=device-width, initial-scale=1"></head>
 <body>
 <h3>Alarm state:"
-gpio -g read 18
-echo " (0=armed)</h3>
+pinctrl get 18
+echo " (pin=lo -> armed)</h3>
 </body>
 </html>"
