@@ -1,6 +1,8 @@
 // Library (for Raspberry Pi OS 64 bits) that uses the Curl library to
-// capture one frame and store it on a local directory.
-// It is equivalent to brwose:
+// capture one camera frame and store it on a local directory.
+// It assumes that the mjpg-streamer (from https://github.com/ArduCAM/mjpg-streamer
+// which is already included in the alarm4pi project) is running. alarm4pi launches it.
+// It is equivalent to browse the streamer HTTP file:
 //<html>
 //<head><title>alarm4pi static img.</title></head>
 //<body>
