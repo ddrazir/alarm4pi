@@ -243,7 +243,10 @@ and then execute ```make``` in the project directory
 
 ## alarm4pi service install ###
 The install_service.sh script can be executed to create a systemd service
-that will automatically start alarm4pi on boot. This script can be executed typing:
+that will automatically start alarm4pi on boot.
+Before running the script open it with a text editor and modify the value
+of the ExecStart parameter to indicate the directory where alarm4pi project is.
+This script can be executed typing:
 ``` sudo ./install_service.sh ```
 
 ## Log files
