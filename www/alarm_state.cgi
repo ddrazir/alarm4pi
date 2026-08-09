@@ -10,6 +10,7 @@ echo "<!DOCTYPE html><html><head>
 <body>
 <h3>Alarm state:"
 pinctrl get 18
-echo " (pin=lo -> armed)</h3>
+echo "</h3>
+<h3>(pin=lo -> armed)</h3>
 </body>
 </html>"
