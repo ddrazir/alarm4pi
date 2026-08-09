@@ -4,8 +4,9 @@ into an alarm system for your house.
 It has been tested with a Raspberry Pi 3 Model B and 64-bit Raspberry Pi OS.
 
 ## Description
-alarm4pi monitors a presence-detection sensor (PIR sensor).
-When the sensor is activated:
+alarm4pi monitors up to two contact switch sensors and a presence sensor (PIR
+sensor or passive infrared sensor).
+When a sensor is activated:
 * A notification is sent to the user's mobile phone through the Internet
 * A photograph is taken by means of the Raspberry Pi's camera and stored
 in the 'captures' directory of alarm4pi
@@ -19,7 +20,7 @@ alarm4pi also implements a web streaming server so the user can remotely watch
 through the Raspberry Pi camera at any moment, manage the state of the alarm
 system and activate/deactivate relays connected to the Raspberry Pi's GPIO
 pins. No credentials are required to access this interface, so be careful not
-to share the URL or display compromising images through the camera.
+to share the web server URL or display compromising images through the camera.
 
 ### Required hardware
 This alarm system is intended to be a do-it-yourself device and requires the
@@ -41,7 +42,6 @@ physical connector are numbered from pin 1 to pin 40.
 Through this connector it provides access to 28 general purpose input/output
 signals (GPIOs). From the software's point of view these signals are named:
 GPIO 0-16 and GPIO 21-31.
-
 
 Connections for alarm4pi:
 
