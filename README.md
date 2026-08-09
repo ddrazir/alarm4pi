@@ -1,4 +1,4 @@
-# alarm4pi v0.2
+# alarm4pi v0.3
 This project implements an application software to convert a Raspberry Pi
 into an alarm system for your house.
 It has been tested with a Raspberry Pi 3 model B and Raspberry Pi OS (64-bit).
@@ -33,8 +33,8 @@ Raspberry Pi 3 Model B has a single 40-pin expansion header. Header pins are num
 It provides access to 28 general purpose input/output pins (GPIOs): GPIO 0...16 and GPIO 21..31.
 Connections for alarm4pi:
 
- Header pin=Function -> Connected to
- -----------------------------------
+Header pin=Function -> Connected to
+------ ------------    ------------
 Pin 2 = 5 V DC -> PIR sensor input power
 
 Pin 4 = 5 V DC -> Relays' input power
@@ -66,10 +66,13 @@ Pin 30 = GND -> Contact sensors' GND
 Pin 31 = GPIO 6 -> Contact sensor 2
 
 ### Required software
-alarm4pi is composed of the following software components:
-* mjpg-streamer: This is the used web streaming server from jacksonliam
-(originally created by Tom Stöveken). It is already included
-in the alarm4pi repository, but it must be compiled manually serparately.
+alarm4pi is composed of the following software component:
+* mjpg-streamer from ArduCAM: This is the used web streaming local server.
+It is a version of the project from jacksonliam (originally created by Tom
+Stöveken). It is already included in the alarm4pi repository, but it must be
+compiled manually serparately.
+
+The following software components can be integrated with alarm4pi:
 * Means of communication to notify the user: When an alarm event is detected
 the alarm4pi must notify the user. Two options are available for this:
   * Pushover (optional): This app (available for iOS and Android) can be
@@ -98,14 +101,17 @@ Pi is disconnected.
 
 ## Software prerequisites and depencencies
 Before running alarm4pi you must prepare and configure some software
-components. The first step is downloading alarm4pi repository. Then:
+components. The first step is downloading alarm4pi repository.
+Then, the GPIO control library is used by alarm4pi, so it must be installed:
 ``` sudo apt-get install libgpiod-dev ```
 
 Depending on the features that you want to enable more packages should be installed and further configuration performed:
 
 ### Pushover (optional)
 You must manually configure one notification system so that a message is
-sent to your mobile phone when activity is detected. For that, you can:
+sent to your mobile phone when activity is detected. For that, you can
+use Pushover (Pushover is a paid service. For a free alternative check
+Telegram in the next section). In order to use Pushover:
 * Buy the Pushover application and install it in your phone so that you
 get a user key.
 * Create the file pushover_conf.txt in the project directory with the
@@ -152,8 +158,9 @@ mechanism is disabled.
 ### SocketXP (optional)
 In case your Raspberry Pi is connected to the Internet through a connection
 with CG-NAT you must manually setup a reverse tunneling mechanism. For
-example, alarm4pi can use SocketXP. To install SocketXP and setup on your
-Raspberry Pi:
+example, alarm4pi can use SocketXP (SocketXP is a paid service. For a free
+alternative check Tailscale).
+To install SocketXP and setup on your Raspberry Pi:
 * Register in SocketXP to get an account and get the tunneling plan
 * Download the socketxp agent and move it to a directory in the system path
 as shown in your socketxp user portal: https://portal.socketxp.com/ when
@@ -202,15 +209,16 @@ If this configuration file is not created, the upload mechanism is disabled.
 ``` sudo apt-get install libcurl4-openssl-dev ```
 
 ### Camera
-The Raspberry Pi camera interface must be activated in the current Raspbian
-build. If it is not, run:
-``` sudo raspi-config ```
-to activate it.
+alarm4pi uses the Raspberry Pi camera (connect through a flat cable).
+This new version of alarm4pi uses the new camera interface provided by
+Raspberry OS 64 bits.
 
 ### MJPG-streamer compilation (and test)
 alarm4pi uses mjpg-streamer from https://github.com/ArduCAM/mjpg-streamer
-which is already included in the alarm4pi project but must be compiled
-manually. For that:
+As to August 2026 the mjpg-streamer has some bugs in its GitHub repository
+version that impedes that it works on current Rasberry OS 64 bits.
+However, these bugs has been fixed in the version included in the alarm4pi
+project. Anyway mjpg-streamer but must be compiled manually. For that:
 * You must install its software dependencies:
 ```
 sudo apt-get install cmake libjpeg62-turbo-dev libcamera-dev
@@ -232,6 +240,33 @@ cd mjpg-streamer-master/mjpg-streamer-experimental
 ```
 and then browsing the site http://localhost:8008 in the Raspberry Pi browser.
 
+## alarm4pi configuration
+As stated previously owncloud_conf.txt, pushover_conf.txt or telegram_conf.txt
+file must be created to enable the corresponding component.
+Moreover, some configurations must be performed in the source code:
+* In alarm4pi.c, change the following line:
+```
+#define REVERSE_TUNNELING <number>
+```
+so that <number> is 1 to use SocketXP tunneling, or 2 to use Tailscale
+tunneling.
+* In gpio_polling.c, change the following line:
+```
+const int Alarm_gpios[]={<list_of_signals_to_monitor>};
+```
+where <list_of_signals_to_monitor> is a comma separated list of the follwing
+labels depending on what input pins you whant alarm4pi to contuosly check:
+PIR_GPIO (for the passive infrared sensor (PIR sensor)), CONTACT1_GPIO (for the
+1st electric contact to GND), CONTACT2_GPIO (for the 1st electric contact to
+GND).
+
+* In gpio_polling.c, you may want to change the following line:
+```
+#define OWNCLOUD_REMOTE_DIRECTORY "captures"
+```
+To set a different remove directory in ownCloud the the captured images through
+the Raspberry Pi camera will be uploaded.
+
 ## alarm4pi compilation
 Before compiling alarm4pi you must install the following dependencies:
 * libminiupnpc-dev
@@ -247,7 +282,9 @@ that will automatically start alarm4pi on boot.
 Before running the script open it with a text editor and modify the value
 of the ExecStart parameter to indicate the directory where alarm4pi project is.
 This script can be executed typing:
-``` sudo ./install_service.sh ```
+``` sudo ./install_services.sh ```
+To uninstall the service, run:
+``` sudo ./uninstall_services.sh ```
 
 ## Log files
 alarm4pi creates 2 log files in the log directory.

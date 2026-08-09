@@ -42,8 +42,10 @@ char Msg_info_str[INET6_ADDRSTRLEN+100];
 char Full_capture_path[PATH_MAX+1];
 
 // List of GPIO pins that will the monitored.
-// Any change in their values will trigger an alarm event
-const int Alarm_gpios[]={PIR_GPIO, CONTACT1_GPIO, CONTACT2_GPIO};
+// Any change in their values will trigger an alarm event. Example to check
+// the 3 inputs:
+// const int Alarm_gpios[]={PIR_GPIO, CONTACT1_GPIO, CONTACT2_GPIO};
+const int Alarm_gpios[]={CONTACT1_GPIO, CONTACT2_GPIO};
 
 #define MAX_NOTIF_MSG_SIZE ((MAX_PUSHOVER_MSG_SIZE) < (MAX_TELEGRAM_MSG_SIZE) ? (MAX_PUSHOVER_MSG_SIZE) : (MAX_TELEGRAM_MSG_SIZE))
 

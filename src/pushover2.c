@@ -214,10 +214,16 @@ int send_pushover_notification(char *msg_str, char *msg_priority)
    CURL *curl_handle;
 
    if(Pushover_initialized == 0) // check if the library is not initializated
+     {
+      //log_printf("Error the Pushover send message function is being called but the library in not initizalized\n");
       return(EPERM);
+     }
 
    if(strlen(msg_str) >= MAX_PUSHOVER_MSG_SIZE)
+     {
+      log_printf("Error the Pushover send message function is being called but the message is too long to be sent\n");
       return(EINVAL);
+     }
 
    curl_handle = curl_easy_init();
    if(curl_handle != NULL)

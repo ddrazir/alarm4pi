@@ -194,7 +194,7 @@ int upload_capture(const char *filename_to_upload)
 
    if(Owncloud_initialized == 0) // Check whether the library is not (correctly) initialized
      {
-      log_printf("Error the Owncloud upload_capture function is being called but the library in not initizalized\n");
+      //log_printf("Error the Owncloud upload_capture function is being called but the library in not initizalized\n");
       return(EPERM);
      }
 

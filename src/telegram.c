@@ -173,7 +173,7 @@ int send_telegram_message(char *msg_str)
 
    if(Telegram_initialized == 0) // check if the library not is initializated
      {
-      log_printf("Error the Telegram send message function is being called but the library in not initizalized\n");
+      //log_printf("Error the Telegram send message function is being called but the library in not initizalized\n");
       return(EPERM);
      }
 
